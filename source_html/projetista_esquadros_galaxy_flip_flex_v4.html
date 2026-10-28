@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#0c1418">
+<title>Esquadros CNC — Galaxy Flip Flex v4</title>
+<style>
+:root{
+  --bg:#0c1418;--panel:#132127;--panel2:#1a2d35;--line:#35505b;
+  --text:#eef5f7;--muted:#96aeb7;--accent:#58ced3;--accent2:#f0a34a;
+  --good:#70d286;--warn:#f3c45a;--bad:#ef7373;
+  --safe-top:env(safe-area-inset-top,0px);
+  --safe-bottom:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);
+  font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;overscroll-behavior:none}
+button,input,select{font:inherit}
+button{touch-action:manipulation}
+#app{position:fixed;inset:0;display:grid;grid-template-rows:47dvh 53dvh;background:var(--bg);overflow:hidden}
+.pane{min-width:0;min-height:0;overflow:hidden}
+
+/* ---------- PREVIEW ---------- */
+#previewPane{position:relative;background:#f5f9fa;color:#16333b;border-bottom:1px solid #7a969f}
+.previewTopbar{
+  position:absolute;z-index:8;left:6px;right:6px;top:calc(5px + var(--safe-top));
+  height:34px;display:grid;grid-template-columns:auto 1fr auto auto;align-items:center;gap:5px;
+}
+.iconBtn,.modePill,.tinyBtn{
+  height:32px;border:1px solid rgba(20,58,68,.25);border-radius:9px;background:rgba(255,255,255,.90);
+  color:#173b45;padding:0 10px;font-weight:800;box-shadow:0 2px 8px rgba(0,0,0,.08)
+}
+.modePill{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.statusDot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#8a9da3;margin-right:5px}
+.statusDot.flex{background:#27a95c}
+#previewSvg{position:absolute;inset:0;width:100%;height:100%;display:block}
+.previewStats{
+  position:absolute;z-index:8;left:6px;right:6px;bottom:6px;
+  display:grid;grid-template-columns:repeat(4,1fr);gap:5px;pointer-events:none
+}
+.stat{
+  min-width:0;background:rgba(13,27,32,.86);color:#f2f8fa;border:1px solid rgba(255,255,255,.10);
+  border-radius:9px;padding:5px 6px;text-align:center;backdrop-filter:blur(5px)
+}
+.stat b{display:block;font-size:13px;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stat span{font-size:8.5px;color:#b9ccd2;letter-spacing:.02em}
+.previewHint{
+  position:absolute;z-index:7;left:50%;transform:translateX(-50%);top:43px;
+  background:rgba(255,255,255,.82);border-radius:8px;padding:3px 8px;font-size:10px;color:#536d75
+}
+
+/* ---------- CONTROLS ---------- */
+#controlPane{
+  background:var(--bg);padding:5px 6px calc(6px + var(--safe-bottom));
+  display:grid;grid-template-rows:36px 34px 1fr 30px;gap:5px
+}
+.mainTabs,.subTabs{display:grid;gap:5px}
+.mainTabs{grid-template-columns:1fr 1fr 36px}
+.subTabs{grid-template-columns:repeat(3,1fr)}
+.tabBtn{
+  min-width:0;border:1px solid var(--line);background:var(--panel);color:var(--muted);border-radius:9px;
+  font-size:12px;font-weight:800;padding:0 7px
+}
+.tabBtn.active{background:var(--panel2);color:var(--accent);border-color:#4b727e}
+#criteriaBtn{font-size:17px}
+.panels{position:relative;min-height:0;overflow:hidden}
+.controlPanel{
+  position:absolute;inset:0;display:none;background:var(--panel);border:1px solid var(--line);
+  border-radius:11px;padding:6px;overflow:hidden
+}
+.controlPanel.active{display:block}
+.formGrid{height:100%;display:grid;grid-template-columns:1fr 1fr;grid-auto-rows:minmax(0,1fr);gap:5px}
+.field{min-width:0;min-height:0;background:#101b20;border:1px solid #2b424b;border-radius:8px;padding:4px 5px;display:flex;flex-direction:column;justify-content:center}
+.field.full{grid-column:1/-1}
+.field label{display:block;color:var(--muted);font-size:9.5px;line-height:1.05;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+input,select{
+  width:100%;min-width:0;height:30px;border:1px solid #36525d;background:#0d171c;color:var(--text);
+  border-radius:7px;padding:2px 7px;font-size:12px
+}
+input[type=range]{height:22px;padding:0;accent-color:var(--accent)}
+.rangeLine{display:grid;grid-template-columns:1fr auto;gap:6px;align-items:center}
+.rangeVal{font-size:11px;font-weight:800;color:var(--accent);min-width:46px;text-align:right}
+.checkLine{display:flex;align-items:center;gap:7px;height:30px}
+.checkLine input{width:18px;height:18px}
+.metricGrid{height:100%;display:grid;grid-template-columns:repeat(2,1fr);grid-template-rows:repeat(2,1fr);gap:5px}
+.metric{
+  border:1px solid #2d4852;border-radius:8px;background:#0f1b20;padding:5px;display:flex;flex-direction:column;justify-content:center;text-align:center
+}
+.metric .v{font-size:16px;font-weight:900;color:var(--accent2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.metric .l{font-size:9px;color:var(--muted)}
+.actionGrid{height:100%;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:5px}
+.actionBtn{
+  border:1px solid #42636e;border-radius:9px;background:#17313a;color:var(--text);font-weight:800;font-size:12px
+}
+.actionBtn.primary{background:#1e6871;color:white}
+.footerLine{display:grid;grid-template-columns:1fr auto;align-items:center;gap:6px;color:var(--muted);font-size:9px;padding:0 3px}
+#alertText{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#foldState{color:#c6d9df}
+
+/* ---------- CRITERIA MODAL ---------- */
+#criteriaModal{position:fixed;inset:0;z-index:50;background:rgba(4,9,11,.94);display:none;padding:8px}
+#criteriaModal.open{display:grid;grid-template-rows:38px 1fr 38px;gap:6px}
+.modalHead,.modalFoot{display:grid;align-items:center;gap:6px}
+.modalHead{grid-template-columns:1fr auto}
+.modalFoot{grid-template-columns:auto 1fr auto}
+.modalHead button,.modalFoot button{
+  height:36px;border:1px solid var(--line);border-radius:9px;background:var(--panel2);color:var(--text);padding:0 12px;font-weight:800
+}
+.criterionPage{display:none;overflow:hidden;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px}
+.criterionPage.active{display:block}
+.criterionPage h3{margin:0 0 8px;color:var(--accent);font-size:15px}
+.criterionPage p,.criterionPage li{font-size:11px;line-height:1.42;color:#c8d7dc}
+.criterionPage ul{margin:7px 0;padding-left:18px}
+.criterionPage a{color:var(--accent)}
+
+/* ---------- FOLDABLE / FLEX MODE ---------- */
+/* Standards-based exact two-segment layout when the browser exposes viewport segments. */
+@media (vertical-viewport-segments:2) and (horizontal-viewport-segments:1){
+  #app{display:block}
+  #previewPane{
+    position:fixed;
+    left:env(viewport-segment-left 0 0);
+    top:env(viewport-segment-top 0 0);
+    width:env(viewport-segment-width 0 0);
+    height:env(viewport-segment-height 0 0);
+    border-bottom:0
+  }
+  #controlPane{
+    position:fixed;
+    left:env(viewport-segment-left 0 1);
+    top:env(viewport-segment-top 0 1);
+    width:env(viewport-segment-width 0 1);
+    height:env(viewport-segment-height 0 1)
+  }
+}
+/* Fallback when posture is detectable but segment geometry is not exposed. */
+@media (device-posture:folded) and (orientation:portrait){
+  #app{grid-template-rows:50dvh 50dvh}
+}
+html.flex-posture #app{grid-template-rows:50dvh 50dvh}
+
+/* Landscape: preview left, controls right, still no page scroll. */
+@media (orientation:landscape) and (max-height:650px){
+  #app{grid-template-rows:1fr;grid-template-columns:48vw 52vw}
+  #previewPane{border-bottom:0;border-right:1px solid #7a969f}
+  #controlPane{grid-template-rows:34px 32px 1fr 26px}
+  .previewStats{grid-template-columns:repeat(2,1fr);width:48%;left:auto}
+}
+
+/* Very small CSS viewport: compact further instead of scrolling. */
+@media (max-height:720px){
+  #controlPane{grid-template-rows:32px 30px 1fr 24px;gap:4px}
+  .tabBtn{font-size:10.5px}
+  .field{padding:3px 4px}
+  input,select{height:27px;font-size:11px}
+  .field label{font-size:8.7px}
+  .previewTopbar{height:30px}.iconBtn,.modePill,.tinyBtn{height:29px;font-size:11px}
+  .previewHint{top:39px}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <section id="previewPane" class="pane">
+    <div class="previewTopbar">
+      <button class="iconBtn" id="fullscreenBtn" title="Tela cheia">⛶</button>
+      <button class="modePill" id="previewModeLabel">Esquadro em L</button>
+      <button class="tinyBtn" id="zoomFitBtn">Ajustar</button>
+      <button class="tinyBtn" id="swapPaneBtn" title="Inverter painéis">⇅</button>
+    </div>
+    <div class="previewHint"><span class="statusDot" id="statusDot"></span><span id="postureText">Modo contínuo</span></div>
+    <svg id="previewSvg" viewBox="0 0 900 580" preserveAspectRatio="xMidYMid meet"></svg>
+    <div class="previewStats">
+      <div class="stat"><b id="ps1">–</b><span id="ps1l">lado menor</span></div>
+      <div class="stat"><b id="ps2">–</b><span id="ps2l">lado maior</span></div>
+      <div class="stat"><b id="ps3">–</b><span id="ps3l">espessura</span></div>
+      <div class="stat"><b id="ps4">–</b><span id="ps4l">peso</span></div>
+    </div>
+  </section>
+
+  <section id="controlPane" class="pane">
+    <div class="mainTabs">
+      <button class="tabBtn active" data-mode="normal">Esquadro em L</button>
+      <button class="tabBtn" data-mode="speed">Esquadro rápido</button>
+      <button class="tabBtn" id="criteriaBtn" title="Critérios e fontes">ⓘ</button>
+    </div>
+
+    <div class="subTabs" id="normalSubTabs">
+      <button class="tabBtn active" data-panel="n-geo">Geometria</button>
+      <button class="tabBtn" data-panel="n-mat">Material</button>
+      <button class="tabBtn" data-panel="n-hole">Furos / Saída</button>
+    </div>
+    <div class="subTabs" id="speedSubTabs" style="display:none">
+      <button class="tabBtn active" data-panel="s-geo">Geometria</button>
+      <button class="tabBtn" data-panel="s-mat">Material</button>
+      <button class="tabBtn" data-panel="s-mark">Escalas / Saída</button>
+    </div>
+
+    <div class="panels">
+      <!-- NORMAL: GEO -->
+      <div class="controlPanel active" id="n-geo">
+        <div class="formGrid">
+          <div class="field">
+            <label>Lado informado</label>
+            <select id="nInputSide">
+              <option value="short">Menor</option>
+              <option value="long">Maior</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Medida (mm)</label>
+            <input id="nInputLen" type="number" min="100" max="3000" step="1" value="500">
+          </div>
+          <div class="field">
+            <label>Proporção</label>
+            <select id="nRatio">
+              <option value="1.5">1 : 1,5</option>
+              <option value="2">1 : 2</option>
+              <option value="1.5">2 : 3 (= 1 : 1,5)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Largura do braço</label>
+            <div class="rangeLine">
+              <input id="nWidthPct" type="range" min="8" max="12" step="0.1" value="10">
+              <span class="rangeVal" id="nWidthPctTxt">10%</span>
+            </div>
+          </div>
+          <div class="field">
+            <label>Espessura</label>
+            <select id="nThicknessMode">
+              <option value="auto">Automática</option>
+              <option value="manual">Manual</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Espessura manual (mm)</label>
+            <input id="nManualThk" type="number" min="2" max="50" step="0.5" value="10" disabled>
+          </div>
+        </div>
+      </div>
+
+      <!-- NORMAL: MATERIAL -->
+      <div class="controlPanel" id="n-mat">
+        <div class="formGrid">
+          <div class="field">
+            <label>Material</label>
+            <select id="nMaterial">
+              <option value="7075">Alumínio 7075-T6/T651</option>
+              <option value="6061">Alumínio 6061-T6</option>
+              <option value="304">Inox 304</option>
+              <option value="316">Inox 316</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Robustez</label>
+            <select id="nRobust">
+              <option value="0.8">Leve</option>
+              <option value="1" selected>Oficina robusto</option>
+              <option value="1.2">Impacto severo</option>
+            </select>
+          </div>
+          <div class="field full" style="padding:0;border:0;background:transparent">
+            <div class="metricGrid">
+              <div class="metric"><div class="v" id="nGross">–</div><div class="l">peso bruto</div></div>
+              <div class="metric"><div class="v" id="nNet">–</div><div class="l">peso final</div></div>
+              <div class="metric"><div class="v" id="nReduction">–</div><div class="l">redução</div></div>
+              <div class="metric"><div class="v" id="nProps">–</div><div class="l">E / σy</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- NORMAL: HOLES -->
+      <div class="controlPanel" id="n-hole">
+        <div class="formGrid">
+          <div class="field">
+            <label>Furação</label>
+            <select id="nHoleMode">
+              <option value="functional">Fixação / traçagem</option>
+              <option value="relief">Alívio leve</option>
+              <option value="none">Sem furos</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Resultado dos furos</label>
+            <div id="nHoleResult" style="font-size:12px;font-weight:800;color:var(--accent)">–</div>
+          </div>
+          <div class="field full" style="padding:0;border:0;background:transparent">
+            <div class="actionGrid">
+              <button class="actionBtn primary" id="nSaveSvg">Salvar SVG</button>
+              <button class="actionBtn" id="nSaveJson">Salvar JSON</button>
+              <button class="actionBtn" id="nPrint">Imprimir</button>
+              <button class="actionBtn" id="nReset">Padrão</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SPEED: GEO -->
+      <div class="controlPanel" id="s-geo">
+        <div class="formGrid">
+          <div class="field">
+            <label>Cateto nominal (mm)</label>
+            <input id="sSize" type="number" min="120" max="600" step="1" value="250">
+          </div>
+          <div class="field">
+            <label>Corpo</label>
+            <select id="sBody">
+              <option value="frame">Vazado estrutural</option>
+              <option value="solid">Sólido</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Largura estrutural</label>
+            <div class="rangeLine">
+              <input id="sFramePct" type="range" min="10" max="20" step="0.5" value="14">
+              <span class="rangeVal" id="sFramePctTxt">14%</span>
+            </div>
+          </div>
+          <div class="field">
+            <label>Aba-guia</label>
+            <div class="rangeLine">
+              <input id="sFencePct" type="range" min="6" max="14" step="0.5" value="9">
+              <span class="rangeVal" id="sFencePctTxt">9%</span>
+            </div>
+          </div>
+          <div class="field full">
+            <label>Geometria automática</label>
+            <div style="font-size:12px;font-weight:800;color:var(--accent)" id="sGeoResult">45° / 45° / 90°</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SPEED: MATERIAL -->
+      <div class="controlPanel" id="s-mat">
+        <div class="formGrid">
+          <div class="field">
+            <label>Material</label>
+            <select id="sMaterial">
+              <option value="7075">Alumínio 7075-T6/T651</option>
+              <option value="6061">Alumínio 6061-T6</option>
+              <option value="304">Inox 304</option>
+              <option value="316">Inox 316</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Robustez</label>
+            <select id="sRobust">
+              <option value="0.8">Leve</option>
+              <option value="1" selected>Oficina robusto</option>
+              <option value="1.2">Impacto severo</option>
+            </select>
+          </div>
+          <div class="field full" style="padding:0;border:0;background:transparent">
+            <div class="metricGrid">
+              <div class="metric"><div class="v" id="sGross">–</div><div class="l">peso bruto</div></div>
+              <div class="metric"><div class="v" id="sNet">–</div><div class="l">peso final</div></div>
+              <div class="metric"><div class="v" id="sReduction">–</div><div class="l">redução</div></div>
+              <div class="metric"><div class="v" id="sProps">–</div><div class="l">espessura / material</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SPEED: MARK -->
+      <div class="controlPanel" id="s-mark">
+        <div class="formGrid">
+          <div class="field">
+            <label>Marcas de traçagem</label>
+            <select id="sScribe">
+              <option value="5">a cada 5 mm</option>
+              <option value="10">a cada 10 mm</option>
+              <option value="0">sem marcas</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Inclinação r/12</label>
+            <div class="checkLine"><input type="checkbox" id="sShowPitch" checked><span style="font-size:11px">Mostrar escala</span></div>
+          </div>
+          <div class="field full" style="padding:0;border:0;background:transparent">
+            <div class="actionGrid">
+              <button class="actionBtn primary" id="sSaveSvg">Salvar SVG</button>
+              <button class="actionBtn" id="sSaveJson">Salvar JSON</button>
+              <button class="actionBtn" id="sPitchTable">Tabela r/12</button>
+              <button class="actionBtn" id="sReset">Padrão</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footerLine">
+      <div id="alertText">Pronto.</div>
+      <div id="foldState">Tela única</div>
+    </div>
+  </section>
+</div>
+
+<!-- Criteria / help modal, paginated: no page scrolling -->
+<div id="criteriaModal">
+  <div class="modalHead">
+    <strong>Critérios e fontes</strong>
+    <button id="closeCriteria">Fechar</button>
+  </div>
+  <div>
+    <div class="criterionPage active" data-cp="0">
+      <h3>Dimensionamento</h3>
+      <p><b>Proporções:</b> o configurador oferece 1:1,5, 1:2 e 2:3. Note que 1:1,5 e 2:3 são matematicamente equivalentes.</p>
+      <p><b>Largura dos braços:</b> 8% a 12% do lado menor é tratada como heurística de projeto, não como exigência normativa.</p>
+      <p><b>Espessura:</b> a recomendação combina uma equivalência de rigidez em flexão, proporcional a E·t³, e uma verificação simplificada de resistência à plastificação em flexão, proporcional a σy·t².</p>
+    </div>
+    <div class="criterionPage" data-cp="1">
+      <h3>Peso e furação</h3>
+      <p><b>Peso:</b> massa = área plana × espessura × densidade. No esquadro em L, os furos são descontados. No rápido vazado, o vazio triangular interno é descontado.</p>
+      <p><b>Furos:</b> o algoritmo preserva zona sem furos junto ao vértice de 90°, afastamento de bordas e espaçamento mínimo. Grandes vazados exigem análise estrutural específica.</p>
+      <p><b>Impacto:</b> queda e esmagamento são eventos dinâmicos; a espessura sugerida não é garantia contra qualquer impacto.</p>
+    </div>
+    <div class="criterionPage" data-cp="2">
+      <h3>Esquadro rápido</h3>
+      <p>A geometria-base é um triângulo retângulo isósceles 45°–45°–90°. A inclinação de telhado r/12 é calculada diretamente por θ = atan(r/12).</p>
+      <p>O aplicativo não copia tabelas proprietárias de fabricantes; calcula os valores por trigonometria.</p>
+      <p>A aba-guia mostrada é uma aproximação em planta. A massa real depende de ser usinada como degrau, dobrada ou fixada como peça separada.</p>
+    </div>
+    <div class="criterionPage" data-cp="3">
+      <h3>Normas e referências</h3>
+      <ul>
+        <li>W3C Device Posture API — estado <i>continuous/folded</i>.</li>
+        <li>W3C Media Queries Level 5 — viewport segments.</li>
+        <li>DIN Media — série DIN 875 para esquadros de 90°.</li>
+        <li>ASM/MatWeb — propriedades de Al 6061-T6 e 7075-T6.</li>
+        <li>Swanson Tool — fundamentos de rafter/speed square.</li>
+      </ul>
+      <p>Precisão final deve ser verificada metrologicamente após usinagem e acabamento.</p>
+    </div>
+    <div class="criterionPage" data-cp="4">
+      <h3>Tabela de inclinação r/12</h3>
+      <div id="pitchMiniTable" style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px;font-size:10px"></div>
+    </div>
+  </div>
+  <div class="modalFoot">
+    <button id="prevCriteria">◀</button>
+    <div id="criteriaPageLabel" style="text-align:center;color:var(--muted);font-size:11px">1 / 5</div>
+    <button id="nextCriteria">▶</button>
+  </div>
+</div>
+
+<script>
+const NS="http://www.w3.org/2000/svg";
+const MAT={
+  "7075":{name:"Al 7075-T6/T651",rho:2.81,E:71.7,y:503},
+  "6061":{name:"Al 6061-T6",rho:2.70,E:68.9,y:276},
+  "304":{name:"Inox 304",rho:8.00,E:193,y:230},
+  "316":{name:"Inox 316",rho:8.00,E:193,y:205}
+};
+const STOCK=[3,4,5,6,8,10,12,15,16,20,25,30];
+const $=id=>document.getElementById(id);
+const fmt=(x,d=0)=>Number(x).toLocaleString("pt-BR",{minimumFractionDigits:d,maximumFractionDigits:d});
+const clamp=(x,a,b)=>Math.min(b,Math.max(a,x));
+function roundStock(x){for(const s of STOCK)if(s>=x)return s;return Math.ceil(x/5)*5}
+function svgEl(tag,attrs={},text=""){const e=document.createElementNS(NS,tag);for(const[k,v]of Object.entries(attrs))e.setAttribute(k,v);if(text)e.textContent=text;return e}
+function download(name,type,text){const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},150)}
+function exportSvg(name){const s=$("previewSvg").cloneNode(true);s.setAttribute("xmlns",NS);download(name,"image/svg+xml;charset=utf-8",new XMLSerializer().serializeToString(s))}
+function baseThickness7075(L,kind){return kind==="speed"?clamp(L/45,5,10):clamp(L/60,6,16)}
+function suggestedThickness(L,matKey,robust,kind){
+  const m=MAT[matKey],ref=MAT["7075"],tr=baseThickness7075(L,kind)*robust;
+  const tStiff=tr*Math.cbrt(ref.E/m.E), tYield=.75*tr*Math.sqrt(ref.y/m.y);
+  const raw=Math.max(tStiff,tYield,kind==="speed"?4:5);
+  return {raw,stock:roundStock(raw),tStiff,tYield}
+}
+function addDefs(svg){
+  const defs=svgEl("defs");
+  const marker=svgEl("marker",{id:"arr",markerWidth:"9",markerHeight:"9",refX:"4.5",refY:"4.5",orient:"auto-start-reverse"});
+  marker.appendChild(svgEl("path",{d:"M0 0 L9 4.5 L0 9 Z",fill:"#3477c7"}));defs.appendChild(marker);svg.appendChild(defs)
+}
+function addDim(svg,x1,y1,x2,y2,label,tx,ty,rot=0){
+  svg.appendChild(svgEl("line",{x1,y1,x2,y2,stroke:"#3477c7","stroke-width":"2","marker-start":"url(#arr)","marker-end":"url(#arr)"}));
+  const t=svgEl("text",{x:tx,y:ty,fill:"#174f97","font-size":"22","font-weight":"800","text-anchor":"middle","paint-order":"stroke","stroke":"#f5f9fa","stroke-width":"4"},label);
+  if(rot)t.setAttribute("transform",`rotate(${rot} ${tx} ${ty})`);svg.appendChild(t)
+}
+
+let mode="normal", activeNormal="n-geo", activeSpeed="s-geo", swapped=false;
+
+function calcNormal(){
+  const input=Math.max(1,+$("nInputLen").value||500),r=+$("nRatio").value;
+  let short=input,long=input*r;if($("nInputSide").value==="long"){long=input;short=input/r}
+  const wp=+$("nWidthPct").value,w=short*wp/100,matKey=$("nMaterial").value,m=MAT[matKey],rob=+$("nRobust").value;
+  const th=suggestedThickness(short,matKey,rob,"normal");
+  const t=$("nThicknessMode").value==="manual"?Math.max(2,+$("nManualThk").value||th.stock):th.stock;
+  const hm=$("nHoleMode").value;let d=0,pitch=0,corner=0,end=0;
+  if(hm==="functional"){d=clamp(w*.18,6,14);pitch=Math.max(2.5*w,4*d,100);corner=Math.max(1.25*w,3*d);end=Math.max(.8*w,3*d)}
+  if(hm==="relief"){d=clamp(w*.45,12,40);pitch=Math.max(1.85*w,3*d);corner=Math.max(1.6*w,3.5*d);end=Math.max(w,3*d)}
+  function pos(L){if(hm==="none")return[];const u=L-corner-end;if(u<=0)return[];const n=Math.max(1,Math.floor(u/pitch)+1);return n===1?[corner+u/2]:Array.from({length:n},(_,i)=>corner+i*u/(n-1))}
+  const hx=pos(long),hy=pos(short),grossArea=long*w+short*w-w*w,holeArea=(hx.length+hy.length)*Math.PI*d*d/4;
+  const area=Math.max(0,grossArea-holeArea),grossMass=grossArea*t*m.rho/1e6,mass=area*t*m.rho/1e6,red=grossMass?100*(grossMass-mass)/grossMass:0;
+  return{short,long,w,wp,matKey,m,rob,th,t,hm,d,hx,hy,grossMass,mass,red}
+}
+function calcSpeed(){
+  const A=Math.max(80,+$("sSize").value||250),matKey=$("sMaterial").value,m=MAT[matKey],rob=+$("sRobust").value;
+  const th=suggestedThickness(A,matKey,rob,"speed"),t=th.stock,fp=+$("sFramePct").value,w=A*fp/100,fence=A*(+$("sFencePct").value)/100,body=$("sBody").value;
+  const outer=A*A/2,innerLeg=Math.max(0,A-w*(2+Math.SQRT2)),inner=body==="frame"?innerLeg*innerLeg/2:0,fenceArea=A*fence*.35;
+  const grossArea=outer+fenceArea,area=outer-inner+fenceArea,grossMass=grossArea*t*m.rho/1e6,mass=area*t*m.rho/1e6,red=grossMass?100*(grossMass-mass)/grossMass:0;
+  return{A,hyp:A*Math.SQRT2,matKey,m,rob,th,t,fp,w,fence,body,innerLeg,grossMass,mass,red}
+}
+
+function drawNormal(o){
+  const svg=$("previewSvg");svg.innerHTML="";addDefs(svg);
+  const W=900,H=580,padX=100,padTop=80,padBottom=90;
+  const s=Math.min((W-2*padX)/o.long,(H-padTop-padBottom)/o.short),ox=padX,oy=padTop,L=o.long*s,S=o.short*s,w=o.w*s;
+  const path=`M${ox},${oy} H${ox+L} V${oy+w} H${ox+w} V${oy+S} H${ox} Z`;
+  svg.appendChild(svgEl("path",{d:path,fill:"#2d7d8e",stroke:"#0d4a55","stroke-width":"3"}));
+  if(o.hm!=="none"){
+    o.hx.forEach(x=>svg.appendChild(svgEl("circle",{cx:ox+x*s,cy:oy+w/2,r:o.d*s/2,fill:"#f5f9fa",stroke:"#df8f35","stroke-width":"3"})));
+    o.hy.forEach(y=>svg.appendChild(svgEl("circle",{cx:ox+w/2,cy:oy+y*s,r:o.d*s/2,fill:"#f5f9fa",stroke:"#df8f35","stroke-width":"3"})));
+  }
+  const q=Math.min(36,w*.55);svg.appendChild(svgEl("path",{d:`M${ox+w+8},${oy+w+q} H${ox+w+q} V${oy+w+8}`,fill:"none",stroke:"#f0a34a","stroke-width":"3"}));
+  addDim(svg,ox,oy-35,ox+L,oy-35,`${fmt(o.long)} mm`,ox+L/2,oy-50);
+  addDim(svg,ox-38,oy,ox-38,oy+S,`${fmt(o.short)} mm`,ox-58,oy+S/2,-90);
+  addDim(svg,ox+L*.72,oy+4,ox+L*.72,oy+w-4,`${fmt(o.w,1)} mm`,ox+L*.72+55,oy+w/2+7);
+  svg.appendChild(svgEl("text",{x:W-18,y:H-20,fill:"#536d75","font-size":"18","text-anchor":"end"},`${o.m.name} • t=${fmt(o.t,1)} mm • ${fmt(o.mass,2)} kg`));
+}
+function polar(cx,cy,r,deg){const a=deg*Math.PI/180;return[cx+r*Math.cos(a),cy-r*Math.sin(a)]}
+function drawSpeed(o){
+  const svg=$("previewSvg");svg.innerHTML="";addDefs(svg);
+  const W=900,H=580,pad=95,s=Math.min((W-2*pad)/o.A,(H-2*pad)/o.A),A=o.A*s,ox=pad,oy=H-pad;
+  svg.appendChild(svgEl("path",{d:`M${ox},${oy} L${ox+A},${oy} L${ox},${oy-A} Z`,fill:"#2d7d8e",stroke:"#0d4a55","stroke-width":"3"}));
+  if(o.body==="frame"&&o.innerLeg>0){
+    const w=o.w*s,q0=[ox+w,oy-w],q1=[ox+(o.A-o.w*(1+Math.SQRT2))*s,oy-w],q2=[ox+w,oy-(o.A-o.w*(1+Math.SQRT2))*s];
+    svg.appendChild(svgEl("path",{d:`M${q0[0]},${q0[1]} L${q1[0]},${q1[1]} L${q2[0]},${q2[1]} Z`,fill:"#f5f9fa",stroke:"#0d4a55","stroke-width":"2"}));
+  }
+  const fw=Math.min(o.fence*s,36);svg.appendChild(svgEl("rect",{x:ox-fw,y:oy-A,width:fw,height:A,fill:"#75aeb8",stroke:"#0d4a55","stroke-width":"2"}));
+  const step=+$("sScribe").value;if(step>0)for(let mm=step;mm<o.A;mm+=step){const x=ox+mm*s,len=mm%(step*5)===0?17:9;svg.appendChild(svgEl("line",{x1:x,y1:oy,x2:x,y2:oy-len,stroke:"#e8f4f6","stroke-width":"1.5"}))}
+  const rc=Math.min(A*.45,220);
+  for(let deg=5;deg<=85;deg+=5){const a=polar(ox,oy,rc-(deg%15===0?18:10),deg),b=polar(ox,oy,rc,deg);svg.appendChild(svgEl("line",{x1:a[0],y1:a[1],x2:b[0],y2:b[1],stroke:"#f7dfbd","stroke-width":deg%15===0?3:1.5}));if(deg%15===0){const t=polar(ox,oy,rc-34,deg);svg.appendChild(svgEl("text",{x:t[0],y:t[1]+5,fill:"#73470f","font-size":"16","text-anchor":"middle"},deg+"°"))}}
+  if($("sShowPitch").checked)for(let rise=1;rise<=12;rise++){const deg=Math.atan(rise/12)*180/Math.PI,p=polar(ox,oy,rc-54,deg);svg.appendChild(svgEl("circle",{cx:p[0],cy:p[1],r:3.2,fill:"#df8f35"}))}
+  addDim(svg,ox,oy+35,ox+A,oy+35,`${fmt(o.A)} mm`,ox+A/2,oy+58);
+  addDim(svg,ox-42,oy,ox-42,oy-A,`${fmt(o.A)} mm`,ox-62,oy-A/2,-90);
+  svg.appendChild(svgEl("text",{x:ox+A*.60,y:oy-A*.55,fill:"#163d46","font-size":"20","font-weight":"800","text-anchor":"middle",transform:`rotate(-45 ${ox+A*.60} ${oy-A*.55})`},`hip. ${fmt(o.hyp,1)} mm`));
+  svg.appendChild(svgEl("text",{x:W-18,y:H-20,fill:"#536d75","font-size":"18","text-anchor":"end"},`${o.m.name} • t=${fmt(o.t,1)} mm • ${fmt(o.mass,2)} kg`));
+}
+
+function updateNormal(){
+  const o=calcNormal();
+  $("nWidthPctTxt").textContent=fmt(o.wp,1)+"%";
+  $("nManualThk").disabled=$("nThicknessMode").value!=="manual";
+  $("nGross").textContent=fmt(o.grossMass,2)+" kg";$("nNet").textContent=fmt(o.mass,2)+" kg";$("nReduction").textContent=fmt(o.red,1)+"%";$("nProps").textContent=`${fmt(o.m.E,0)} / ${fmt(o.m.y,0)}`;
+  $("nHoleResult").textContent=o.hm==="none"?"Sem furos":`${o.hx.length+o.hy.length} × Ø${fmt(o.d,1)} mm`;
+  if(mode==="normal"){
+    $("ps1").textContent=fmt(o.short)+" mm";$("ps1l").textContent="lado menor";
+    $("ps2").textContent=fmt(o.long)+" mm";$("ps2l").textContent="lado maior";
+    $("ps3").textContent=fmt(o.t,1)+" mm";$("ps3l").textContent="espessura";
+    $("ps4").textContent=fmt(o.mass,2)+" kg";$("ps4l").textContent="peso final";
+    drawNormal(o);
+    let a="Geometria dentro da faixa prevista.";
+    if(o.short>1000)a="Acima de 1.000 mm: controle térmico e metrologia tornam-se críticos.";
+    if(o.matKey==="6061")a="6061-T6: mais suscetível a marcas que 7075-T6.";
+    $("alertText").textContent=a;
+  }
+  saveState();
+}
+function updateSpeed(){
+  const o=calcSpeed();
+  $("sFramePctTxt").textContent=fmt(o.fp,1)+"%";$("sFencePctTxt").textContent=fmt(+$("sFencePct").value,1)+"%";
+  $("sGross").textContent=fmt(o.grossMass,2)+" kg";$("sNet").textContent=fmt(o.mass,2)+" kg";$("sReduction").textContent=fmt(o.red,1)+"%";$("sProps").textContent=`${fmt(o.t,1)} mm • ${o.m.name}`;
+  $("sGeoResult").textContent=`Hipotenusa ${fmt(o.hyp,1)} mm • 45°/45°/90°`;
+  if(mode==="speed"){
+    $("ps1").textContent=fmt(o.A)+" mm";$("ps1l").textContent="cateto";
+    $("ps2").textContent=fmt(o.hyp,1)+" mm";$("ps2l").textContent="hipotenusa";
+    $("ps3").textContent=fmt(o.t,1)+" mm";$("ps3l").textContent="espessura";
+    $("ps4").textContent=fmt(o.mass,2)+" kg";$("ps4l").textContent="peso final";
+    drawSpeed(o);$("alertText").textContent=o.body==="frame"&&o.innerLeg<=0?"Reduza a largura estrutural: o vazio interno desapareceu.":"Triângulo 45°–45°–90° calculado.";
+  }
+  saveState();
+}
+function updateAll(){updateNormal();updateSpeed()}
+
+function setMode(m){
+  mode=m;
+  document.querySelectorAll("[data-mode]").forEach(b=>b.classList.toggle("active",b.dataset.mode===m));
+  $("normalSubTabs").style.display=m==="normal"?"grid":"none";$("speedSubTabs").style.display=m==="speed"?"grid":"none";
+  $("previewModeLabel").textContent=m==="normal"?"Esquadro em L":"Esquadro rápido";
+  showPanel(m==="normal"?activeNormal:activeSpeed);updateAll();
+}
+function showPanel(id){
+  document.querySelectorAll(".controlPanel").forEach(p=>p.classList.remove("active"));$(id).classList.add("active");
+  const holder=id.startsWith("n-")?$("normalSubTabs"):$("speedSubTabs");
+  holder.querySelectorAll("[data-panel]").forEach(b=>b.classList.toggle("active",b.dataset.panel===id));
+  if(id.startsWith("n-"))activeNormal=id;else activeSpeed=id;
+}
+document.querySelectorAll("[data-mode]").forEach(b=>b.onclick=()=>setMode(b.dataset.mode));
+document.querySelectorAll("[data-panel]").forEach(b=>b.onclick=()=>showPanel(b.dataset.panel));
+
+const normalIds=["nInputSide","nInputLen","nRatio","nWidthPct","nThicknessMode","nManualThk","nMaterial","nRobust","nHoleMode"];
+const speedIds=["sSize","sBody","sFramePct","sFencePct","sMaterial","sRobust","sScribe","sShowPitch"];
+normalIds.forEach(id=>$(id).addEventListener("input",updateNormal));
+speedIds.forEach(id=>$(id).addEventListener("input",updateSpeed));
+
+$("nSaveSvg").onclick=()=>exportSvg("esquadro_L.svg");
+$("sSaveSvg").onclick=()=>exportSvg("esquadro_rapido.svg");
+$("nSaveJson").onclick=()=>download("esquadro_L.json","application/json",JSON.stringify(calcNormal(),null,2));
+$("sSaveJson").onclick=()=>download("esquadro_rapido.json","application/json",JSON.stringify(calcSpeed(),null,2));
+$("nPrint").onclick=()=>window.print();
+$("nReset").onclick=()=>{localStorage.removeItem("esquadroFlipV4");location.reload()};
+$("sReset").onclick=$("nReset").onclick;
+$("sPitchTable").onclick=()=>openCriteria(4);
+
+$("fullscreenBtn").onclick=async()=>{try{if(!document.fullscreenElement)await document.documentElement.requestFullscreen();else await document.exitFullscreen()}catch(e){}};
+$("zoomFitBtn").onclick=()=>{$("previewSvg").setAttribute("viewBox","0 0 900 580")};
+$("swapPaneBtn").onclick=()=>{
+  swapped=!swapped;const app=$("app");
+  if(swapped){$("controlPane").style.order="-1";$("previewPane").style.order="1"}else{$("controlPane").style.order="";$("previewPane").style.order=""}
+};
+
+/* Fold posture and viewport-segment awareness */
+function applyPosture(){
+  let folded=false;
+  try{folded=!!(navigator.devicePosture&&navigator.devicePosture.type==="folded")}catch(e){}
+  document.documentElement.classList.toggle("flex-posture",folded);
+  $("statusDot").classList.toggle("flex",folded);
+  $("postureText").textContent=folded?"Flex Mode detectado":"Modo contínuo";
+  const seg=matchMedia("(vertical-viewport-segments: 2) and (horizontal-viewport-segments: 1)").matches;
+  $("foldState").textContent=seg?"2 segmentos físicos":(folded?"Flex Mode":"Tela única");
+  setTimeout(updateAll,50)
+}
+try{if(navigator.devicePosture)navigator.devicePosture.addEventListener("change",applyPosture)}catch(e){}
+window.addEventListener("resize",applyPosture);
+window.addEventListener("orientationchange",()=>setTimeout(applyPosture,150));
+
+/* Criteria pagination */
+let cp=0;
+function openCriteria(page=0){cp=page;$("criteriaModal").classList.add("open");renderCriteria()}
+function renderCriteria(){
+  document.querySelectorAll(".criterionPage").forEach((p,i)=>p.classList.toggle("active",i===cp));
+  $("criteriaPageLabel").textContent=`${cp+1} / 5`;
+}
+$("criteriaBtn").onclick=()=>openCriteria(0);$("closeCriteria").onclick=()=>$("criteriaModal").classList.remove("open");
+$("prevCriteria").onclick=()=>{cp=(cp+4)%5;renderCriteria()};$("nextCriteria").onclick=()=>{cp=(cp+1)%5;renderCriteria()};
+const mini=$("pitchMiniTable");
+for(let r=1;r<=12;r++){const a=Math.atan(r/12)*180/Math.PI,f=Math.sqrt(144+r*r)/12;const d=document.createElement("div");d.style.cssText="border:1px solid #31505a;border-radius:7px;padding:5px;text-align:center;background:#0f1b20";d.innerHTML=`<b>${r}/12</b><br>${fmt(a,1)}°<br>×${fmt(f,3)}`;mini.appendChild(d)}
+
+/* persistence */
+const stateIds=[...normalIds,...speedIds];
+function saveState(){const s={mode};for(const id of stateIds){const x=$(id);s[id]=x.type==="checkbox"?x.checked:x.value}localStorage.setItem("esquadroFlipV4",JSON.stringify(s))}
+function loadState(){try{const s=JSON.parse(localStorage.getItem("esquadroFlipV4")||"{}");for(const id of stateIds){if(!(id in s))continue;const x=$(id);if(x.type==="checkbox")x.checked=!!s[id];else x.value=s[id]}if(s.mode)mode=s.mode}catch(e){}}
+loadState();setMode(mode);applyPosture();
+</script>
+</body>
+</html>

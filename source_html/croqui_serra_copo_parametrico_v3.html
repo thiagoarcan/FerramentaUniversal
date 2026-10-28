@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Croqui Paramétrico — Serra-copo</title>
+<style>
+  :root{
+    color-scheme: light dark;
+    --bg:#0f1115; --panel:#171a21; --panel2:#1e222b; --text:#eef2f7; --muted:#9aa7b5;
+    --line:#4f6073; --accent:#5fb3ff; --accent2:#ffb454; --ok:#59d185; --warn:#ffcc66; --danger:#ff6b6b;
+    --board:#d9b67b; --boardStroke:#f2d39a; --hole:#78c8ff; --dim:#cdd7e2; --reserve:#f0a45b;
+    --shadow:0 14px 40px rgba(0,0,0,.25);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--text)}
+  .app{display:grid;grid-template-columns:minmax(290px,360px) 1fr;min-height:100vh}
+  aside{background:var(--panel);padding:18px;border-right:1px solid #2b313c;position:sticky;top:0;height:100vh;overflow:auto}
+  main{padding:18px;min-width:0}
+  h1{font-size:20px;margin:0 0 4px}.sub{font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.45}
+  .group{background:var(--panel2);border:1px solid #2b313c;border-radius:12px;padding:12px;margin:0 0 12px}
+  .group h2{font-size:13px;margin:0 0 10px;color:#dce7f4}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+  label{display:block;font-size:11px;color:var(--muted);margin-bottom:5px}
+  input,select,button{font:inherit}
+  input,select{width:100%;border:1px solid #3a4350;background:#11151b;color:var(--text);border-radius:8px;padding:9px 10px;outline:none}
+  input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 2px rgba(95,179,255,.14)}
+  .field{margin-bottom:9px}.field:last-child{margin-bottom:0}
+  .hint{font-size:10px;color:var(--muted);margin-top:4px;line-height:1.35}
+  .checkrow{display:flex;align-items:flex-start;gap:9px;padding:9px 10px;border:1px solid #3a4350;background:#11151b;border-radius:8px;cursor:pointer}
+  .checkrow input{width:auto;min-width:17px;height:17px;margin:1px 0 0;accent-color:var(--accent)}
+  .checkrow span{font-size:12px;color:var(--text);line-height:1.35}
+  .buttons{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  button{border:0;border-radius:9px;padding:10px 12px;background:#2a3340;color:var(--text);cursor:pointer;font-weight:650}
+  button.primary{background:var(--accent);color:#06131f}.buttons button:hover{filter:brightness(1.08)}
+  .status{padding:10px 12px;border-radius:10px;font-size:12px;line-height:1.45;background:#10271a;border:1px solid #214f33;color:#c8f3d7}
+  .status.warn{background:#2c2511;border-color:#69561e;color:#ffe08a}
+  .status.err{background:#2e1518;border-color:#6f2e35;color:#ffd0d5}
+  .cards{display:grid;grid-template-columns:repeat(6,minmax(105px,1fr));gap:9px;margin-bottom:12px}
+  .card{background:var(--panel);border:1px solid #2b313c;border-radius:11px;padding:10px;min-width:0}
+  .card .k{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}.card .v{font-size:18px;font-weight:750;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.card .u{font-size:10px;color:var(--muted)}
+  .canvasWrap{background:#0b0d11;border:1px solid #2b313c;border-radius:14px;box-shadow:var(--shadow);overflow:hidden}
+  .toolbar{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:10px 12px;border-bottom:1px solid #262c35;background:#13171d;font-size:12px;color:var(--muted)}
+  #svgHost{width:100%;height:min(64vh,720px);min-height:420px;display:flex;align-items:center;justify-content:center;overflow:auto}
+  svg{width:100%;height:100%;display:block}
+  .tableWrap{margin-top:12px;background:var(--panel);border:1px solid #2b313c;border-radius:12px;overflow:auto;max-height:330px}
+  table{width:100%;border-collapse:collapse;font-size:12px}th,td{padding:8px 10px;border-bottom:1px solid #2b313c;text-align:right;white-space:nowrap}th{position:sticky;top:0;background:#1b2028;color:#cbd6e2;z-index:1}th:first-child,td:first-child{text-align:left}
+  .legend{display:flex;flex-wrap:wrap;gap:12px}.legend span{display:inline-flex;align-items:center;gap:5px}.dot{width:10px;height:10px;border-radius:50%;display:inline-block}.dot.board{background:var(--board)}.dot.hole{background:var(--hole)}.dot.reserve{background:var(--reserve)}
+  @media (max-width:980px){.app{grid-template-columns:1fr}aside{position:relative;height:auto;border-right:0;border-bottom:1px solid #2b313c}.cards{grid-template-columns:repeat(3,1fr)}#svgHost{height:56vh;min-height:360px}}
+  @media (max-width:560px){aside,main{padding:12px}.grid2{grid-template-columns:1fr 1fr}.cards{grid-template-columns:repeat(2,1fr)}.toolbar{align-items:flex-start;flex-direction:column}#svgHost{min-height:330px;height:52vh}}
+  @media print{aside,.toolbar,.cards{display:none!important}.app{display:block}.canvasWrap,.tableWrap{border:0;box-shadow:none}body{background:white;color:black}main{padding:0}#svgHost{height:70vh}.tableWrap{max-height:none;overflow:visible;break-before:page}}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside>
+    <h1>Croqui paramétrico — serra-copo</h1>
+    <div class="sub">No desenho, <b>FUNDO</b> fica em cima e <b>FRENTE</b> embaixo. As cotas acumuladas até os centros são mostradas <b>nos quatro sentidos</b>: esquerda → centro, direita → centro, fundo → centro e frente → centro. A fileira frontal pode ultrapassar a chapa.</div>
+
+    <div class="group">
+      <h2>Geometria da chapa</h2>
+      <div class="grid2">
+        <div class="field"><label>Largura da chapa (mm)</label><input id="W" inputmode="decimal" value="600"></div>
+        <div class="field"><label>Profundidade da chapa (mm)</label><input id="H" inputmode="decimal" value="250"></div>
+      </div>
+      <div class="grid2">
+        <div class="field"><label>Reserva lateral/fundo (mm)</label><input id="M" inputmode="decimal" value="15"></div>
+        <div class="field"><label>Distância livre entre círculos (mm)</label><input id="G" inputmode="decimal" value="15"></div>
+      </div>
+      <div class="field"><label>Diâmetro da serra-copo (mm)</label><input id="D" inputmode="decimal" value="75"></div>
+    </div>
+
+    <div class="group">
+      <h2>Primeira fileira / borda frontal</h2>
+      <div class="field">
+        <label>Percentual do 1º furo (%) — deixe vazio para automático</label>
+        <input id="PCT" inputmode="decimal" placeholder="Automático">
+        <div class="hint">No automático, o programa maximiza a quantidade de fileiras, mantém a reserva do fundo e calcula quanto do círculo frontal pode ficar na chapa.</div>
+      </div>
+      <div class="field">
+        <label>O percentual representa</label>
+        <select id="PMODE">
+          <option value="circ" selected>Percentual da circunferência dentro da chapa</option>
+          <option value="depth">Percentual do diâmetro/profundidade dentro da chapa</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Distribuição lateral</label>
+        <select id="ALIGN">
+          <option value="center" selected>Centralizar o conjunto entre as laterais</option>
+          <option value="left">Começar exatamente na reserva da esquerda</option>
+        </select>
+        <div class="hint">A reserva informada é tratada como mínima. Centralizar mantém as duas laterais simétricas quando sobra espaço.</div>
+      </div>
+      <div class="field">
+        <label>Arredondamento das cotas acumuladas</label>
+        <label class="checkrow"><input id="INTDIMS" type="checkbox"><span><b>Preferir números inteiros</b><br><span class="hint">Redistribui os centros para privilegiar cotas acumuladas inteiras. Com largura e profundidade inteiras, as cotas esquerda/direita e fundo/frente até os centros também serão inteiras, sem reduzir a reserva nem a distância mínima entre os furos.</span></span></label>
+      </div>
+    </div>
+
+    <div class="group">
+      <h2>Ações</h2>
+      <div class="buttons">
+        <button class="primary" id="recalc">Recalcular</button>
+        <button id="autoPct">Percentual automático</button>
+        <button id="saveSvg">Exportar SVG</button>
+        <button id="saveCsv">Exportar centros CSV</button>
+        <button id="printBtn">Imprimir / PDF</button>
+        <button id="resetBtn">Restaurar padrão</button>
+      </div>
+    </div>
+    <div id="status" class="status">Pronto.</div>
+  </aside>
+
+  <main>
+    <div class="cards">
+      <div class="card"><div class="k">Colunas</div><div class="v" id="cCols">—</div><div class="u">na largura</div></div>
+      <div class="card"><div class="k">Fileiras</div><div class="v" id="cRows">—</div><div class="u">fundo → frente</div></div>
+      <div class="card"><div class="k">Total</div><div class="v" id="cTotal">—</div><div class="u">centros</div></div>
+      <div class="card"><div class="k">1º furo</div><div class="v" id="cPct">—</div><div class="u">dentro da chapa</div></div>
+      <div class="card"><div class="k">Avanço fora</div><div class="v" id="cOver">—</div><div class="u">na frente</div></div>
+      <div class="card"><div class="k">Margem lateral</div><div class="v" id="cSide">—</div><div class="u">real / mínima</div></div>
+    </div>
+
+    <div class="canvasWrap">
+      <div class="toolbar">
+        <div class="legend"><span><i class="dot board"></i>Chapa</span><span><i class="dot hole"></i>Círculos</span><span><i class="dot reserve"></i>Reservas</span></div>
+        <div id="summaryLine">—</div>
+      </div>
+      <div id="svgHost"></div>
+    </div>
+
+    <div class="tableWrap">
+      <table>
+        <thead><tr><th>Furo</th><th>Fileira</th><th>Coluna</th><th>Esquerda → centro X (mm)</th><th>Direita → centro X (mm)</th><th>Fundo → centro Y (mm)</th><th>Frente → centro Y (mm)</th><th>Situação</th></tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const els = {W:$('W'),H:$('H'),M:$('M'),G:$('G'),D:$('D'),PCT:$('PCT'),PMODE:$('PMODE'),ALIGN:$('ALIGN'),INTDIMS:$('INTDIMS')};
+  let current = null;
+
+  function num(v){
+    if (v == null || v === '') return NaN;
+    return Number(String(v).trim().replace(',', '.'));
+  }
+  function fmt(v, d=2){
+    if (!Number.isFinite(v)) return '—';
+    return v.toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:d});
+  }
+  function pctToCenterInside(p, mode, r, D){
+    const f = Math.max(0, Math.min(100, p)) / 100;
+    if (mode === 'depth') return D * f - r;
+    return r * Math.cos(Math.PI * (1 - f));
+  }
+  function centerInsideToPct(c, mode, r, D){
+    if (c <= -r) return 0;
+    if (c >= r) return 100;
+    if (mode === 'depth') return ((c + r) / D) * 100;
+    return (1 - Math.acos(c / r) / Math.PI) * 100;
+  }
+
+  function calculate(){
+    const W=num(els.W.value), H=num(els.H.value), M=num(els.M.value), G=num(els.G.value), D=num(els.D.value);
+    const mode=els.PMODE.value, align=els.ALIGN.value, preferIntegers=els.INTDIMS.checked;
+    const pctRaw=els.PCT.value.trim();
+    const pctUser = pctRaw === '' ? null : num(pctRaw);
+    const vals=[W,H,M,G,D];
+    if (vals.some(v=>!Number.isFinite(v)) || W<=0 || H<=0 || M<0 || G<0 || D<=0) throw new Error('Confira os valores: dimensões e diâmetro devem ser positivos; reserva e distância não podem ser negativas.');
+    if (pctUser !== null && (!Number.isFinite(pctUser) || pctUser<=0 || pctUser>100)) throw new Error('O percentual deve ser maior que 0% e no máximo 100%.');
+    if (W <= 2*M) throw new Error('A largura da chapa é menor ou igual à soma das duas reservas laterais.');
+    if (H <= M) throw new Error('A profundidade da chapa não deixa espaço após a reserva do fundo.');
+
+    const r=D/2, nominalPitch=D+G;
+    // Com "preferir inteiros", o passo é o menor inteiro que nunca reduz a folga solicitada.
+    // Assim, se a geometria original já usa passo inteiro (ex.: 75+15=90), ele permanece inalterado.
+    const pitchX=preferIntegers ? Math.ceil(nominalPitch-1e-9) : nominalPitch;
+    const pitchY=preferIntegers ? Math.ceil(nominalPitch-1e-9) : nominalPitch;
+
+    // Quantidade máxima de colunas respeitando reservas e distância mínima.
+    let nCols=Math.floor((W-2*(M+r) + 1e-9)/pitchX)+1;
+    if (nCols < 1) throw new Error('Não cabe nenhum círculo completo entre as reservas laterais. Reduza o diâmetro/reserva ou aumente a largura.');
+
+    let x0;
+    if (preferIntegers){
+      const minX=Math.ceil(M+r-1e-9);
+      const maxX=Math.floor(W-M-r-(nCols-1)*pitchX+1e-9);
+      if (maxX < minX) {
+        nCols--;
+        if(nCols<1) throw new Error('Não foi possível obter cotas inteiras respeitando as reservas laterais.');
+      }
+      const minX2=Math.ceil(M+r-1e-9);
+      const maxX2=Math.floor(W-M-r-(nCols-1)*pitchX+1e-9);
+      if (align==='left') x0=minX2;
+      else {
+        const ideal=(W-(nCols-1)*pitchX)/2;
+        x0=Math.max(minX2,Math.min(maxX2,Math.round(ideal)));
+      }
+    } else {
+      const patternW=nCols*D+(nCols-1)*G;
+      const marginL=align==='center' ? (W-patternW)/2 : M;
+      x0=marginL+r;
+    }
+    const xs=Array.from({length:nCols},(_,i)=>x0+i*pitchX);
+    const marginL=xs[0]-r, marginR=W-(xs[xs.length-1]+r);
+    const patternW=(xs[xs.length-1]+r)-(xs[0]-r);
+    const actualGapX=nCols>1 ? pitchX-D : 0;
+
+    let yFront, pct, isAuto=false, nRows=0, autoRawCenterInside=null, requestedPct=pctUser;
+    if (pctUser === null){
+      isAuto=true;
+      // Primeira fileira completa junto ao fundo. No modo inteiro, a cota do centro é arredondada
+      // para cima para nunca invadir a reserva mínima.
+      const yBack=preferIntegers ? Math.ceil(M+r-1e-9) : M+r;
+      nRows=Math.floor((H+r-yBack-1e-9)/pitchY)+1;
+      if (nRows < 1) nRows=1;
+      yFront=yBack+(nRows-1)*pitchY;
+      let c=H-yFront;
+      // Tangência pura (0% útil) não conta como fileira.
+      if (c <= -r + 1e-8 && nRows>1){
+        nRows--;
+        yFront=yBack+(nRows-1)*pitchY;
+        c=H-yFront;
+      }
+      autoRawCenterInside=c;
+      pct=centerInsideToPct(c,mode,r,D);
+    } else {
+      const cWanted=pctToCenterInside(pctUser,mode,r,D);
+      const yWanted=H-cWanted;
+      yFront=preferIntegers ? Math.round(yWanted) : yWanted;
+      // Se o arredondamento colocar a fileira frontal totalmente fora, trazemos o centro
+      // para a última posição inteira ainda útil.
+      if(preferIntegers && yFront>=H+r) yFront=Math.ceil(H+r)-1;
+      const minCenter=M+r;
+      const maxRows=Math.floor((yFront-minCenter+1e-9)/pitchY)+1;
+      nRows=Math.max(1,maxRows);
+      let yBack=yFront-(nRows-1)*pitchY;
+      if (preferIntegers && yBack < minCenter-1e-9){
+        nRows--;
+        if(nRows<1) throw new Error('Com esse percentual não existe posição inteira que respeite a reserva do fundo.');
+        yBack=yFront-(nRows-1)*pitchY;
+      }
+      if (yBack-r < M-1e-8) throw new Error('Com esse percentual, o primeiro furo invade a reserva do fundo. Reduza o percentual ou aumente a profundidade da chapa.');
+      const cActual=H-yFront;
+      pct=centerInsideToPct(cActual,mode,r,D);
+    }
+
+    const ysFrontToBack=Array.from({length:nRows},(_,i)=>yFront-i*pitchY);
+    const ysBackToFront=[...ysFrontToBack].reverse();
+    const frontCenterInside=H-yFront;
+    const overhang=Math.max(0, r-frontCenterInside);
+    const frontGap=Math.max(0, frontCenterInside-r);
+    const backMargin=ysBackToFront[0]-r;
+    const actualGapY=nRows>1 ? pitchY-D : 0;
+
+    const holes=[];
+    let id=1;
+    ysFrontToBack.forEach((y,ri)=>{
+      xs.forEach((x,ci)=>{
+        holes.push({id:id++, row:ri+1, col:ci+1, x, y, front:ri===0});
+      });
+    });
+
+    const result={W,H,M,G,D,r,nominalPitch,pitchX,pitchY,mode,align,preferIntegers,pct,pctUser,requestedPct,isAuto,nCols,nRows,patternW,marginL,marginR,xs,ysFrontToBack,ysBackToFront,yFront,frontCenterInside,overhang,frontGap,backMargin,holes,autoRawCenterInside,actualGapX,actualGapY};
+    current=result;
+    render(result);
+    return result;
+  }
+
+  function setStatus(msg,type='ok'){
+    const s=$('status'); s.className='status'+(type==='warn'?' warn':type==='err'?' err':''); s.textContent=msg;
+  }
+
+  function render(r){
+    $('cCols').textContent=r.nCols;
+    $('cRows').textContent=r.nRows;
+    $('cTotal').textContent=r.holes.length;
+    $('cPct').textContent=fmt(r.pct,2)+'%';
+    $('cOver').textContent=fmt(r.overhang,2)+' mm';
+    $('cSide').textContent=fmt(r.marginL,2)+' / '+fmt(r.M,2)+' mm';
+    $('summaryLine').textContent=`Passo X/Y: ${fmt(r.pitchX,2)} / ${fmt(r.pitchY,2)} mm · Folga real X/Y: ${fmt(r.actualGapX,2)} / ${fmt(r.actualGapY,2)} mm · Cotas acumuladas: E↔centros↔D e fundo↔centros↔frente${r.preferIntegers?' · modo inteiro ativo':''}`;
+
+    const typeText = r.mode==='circ' ? 'circunferência' : 'diâmetro';
+    let msg=`${r.holes.length} furos: ${r.nCols} colunas × ${r.nRows} fileiras. Fileira frontal: ${fmt(r.pct,2)}% da ${typeText} dentro da chapa; avanço para fora: ${fmt(r.overhang,2)} mm.`;
+    if(r.preferIntegers) {
+      if(Number.isInteger(r.W) && Number.isInteger(r.H)) msg += ` Modo inteiro ativo: as cotas acumuladas dos centros nos quatro sentidos são números inteiros.`;
+      else msg += ` Modo inteiro ativo: os centros foram posicionados em coordenadas inteiras; para que as cotas dos dois lados também sejam todas inteiras, largura e profundidade da chapa precisam ser inteiras.`;
+    }
+    if(r.preferIntegers && r.pctUser!==null && Math.abs(r.pct-r.pctUser)>0.005) msg += ` O percentual solicitado (${fmt(r.pctUser,2)}%) foi ajustado para ${fmt(r.pct,2)}% para obter cota Y inteira.`;
+    if (r.frontGap>0.0001) msg += ` O último círculo fica totalmente dentro da chapa, com ${fmt(r.frontGap,2)} mm livres até a frente.`;
+    if (r.pctUser !== null){
+      const auto = calcAutoReference(r);
+      if (auto && auto.nRows > r.nRows) msg += ` Com percentual automático caberiam ${auto.nRows} fileiras (${fmt(auto.pct,2)}%).`;
+    }
+    setStatus(msg, 'ok');
+    drawSvg(r);
+    renderTable(r);
+  }
+
+  function calcAutoReference(r){
+    const yBack=r.preferIntegers ? Math.ceil(r.M+r.r-1e-9) : r.M+r.r;
+    let n=Math.floor((r.H+r.r-yBack-1e-9)/r.pitchY)+1;
+    if(n<1)return null;
+    let yf=yBack+(n-1)*r.pitchY;
+    let c=r.H-yf;
+    if(c<=-r.r+1e-8 && n>1){n--;yf=yBack+(n-1)*r.pitchY;c=r.H-yf;}
+    return {nRows:n,pct:centerInsideToPct(c,r.mode,r.r,r.D)};
+  }
+
+  function renderTable(r){
+    $('tbody').innerHTML=r.holes.map(h=>{
+      const situ=h.front ? (r.overhang>0.0001 ? `Frontal · ultrapassa ${fmt(r.overhang,2)} mm` : 'Frontal · dentro da chapa') : 'Completo';
+      const xRight=r.W-h.x;
+      const yFront=r.H-h.y;
+      return `<tr><td>F${h.id}</td><td>${h.row}${h.front?' (frente)':''}</td><td>${h.col}</td><td>${fmt(h.x,3)}</td><td>${fmt(xRight,3)}</td><td>${fmt(h.y,3)}</td><td>${fmt(yFront,3)}${yFront<0?' (fora)':''}</td><td>${situ}</td></tr>`;
+    }).join('');
+  }
+
+  function esc(s){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[m]));}
+
+  function drawSvg(r){
+    const extraLeft=Math.max(135, r.D*1.0 + r.nRows*18), extraTop=Math.max(100,r.D*0.85 + r.nCols*14), extraRight=Math.max(155,r.D*1.25 + r.nRows*18), extraBottom=Math.max(145,r.D*1.15+r.overhang+r.nCols*14);
+    const minX=-extraLeft, minY=-extraTop, vbW=r.W+extraLeft+extraRight, vbH=r.H+extraTop+extraBottom+r.overhang;
+    const f=Math.max(7,Math.min(12,r.W/55));
+    const small=f*0.78;
+    const sw=Math.max(.65,r.W/950);
+    const arrow=8;
+
+    let s=`<svg id="croquiSvg" xmlns="http://www.w3.org/2000/svg" viewBox="${minX} ${minY} ${vbW} ${vbH}" role="img" aria-label="Croqui paramétrico com cotas acumuladas dos centros nos quatro sentidos">
+      <defs>
+        <marker id="arr" markerWidth="${arrow}" markerHeight="${arrow}" refX="4" refY="4" orient="auto-start-reverse" markerUnits="strokeWidth"><path d="M8,4 L0,0 L0,8 Z" fill="#cdd7e2"/></marker>
+        <clipPath id="boardClip"><rect x="0" y="0" width="${r.W}" height="${r.H}"/></clipPath>
+        <style>
+          .board{fill:#d9b67b;fill-opacity:.18;stroke:#f2d39a;stroke-width:${sw*1.6}}
+          .reserve{stroke:#f0a45b;stroke-width:${sw};stroke-dasharray:${sw*5} ${sw*4};opacity:.9}
+          .holeFull{fill:none;stroke:#78c8ff;stroke-width:${sw};stroke-dasharray:${sw*5} ${sw*4};opacity:.45}
+          .holeIn{fill:#78c8ff;fill-opacity:.06;stroke:#78c8ff;stroke-width:${sw*1.45}}
+          .center{stroke:#ffcc66;stroke-width:${sw*1.15}}
+          .dim{stroke:#cdd7e2;stroke-width:${sw};fill:none;marker-start:url(#arr);marker-end:url(#arr)}
+          .ext{stroke:#758496;stroke-width:${sw*.75};stroke-dasharray:${sw*3} ${sw*3}}
+          .tick{stroke:#cdd7e2;stroke-width:${sw}}
+          .txt{font-family:Arial,sans-serif;fill:#eef2f7;font-size:${f}px;paint-order:stroke;stroke:#0b0d11;stroke-width:${sw*2};stroke-linejoin:round}
+          .small{font-family:Arial,sans-serif;fill:#d6e1ec;font-size:${small}px;paint-order:stroke;stroke:#0b0d11;stroke-width:${sw*1.8};stroke-linejoin:round}
+          .accent{fill:#ffcc66}.front{fill:#ffb454;font-weight:bold}.back{fill:#9dd4ff;font-weight:bold}
+        </style>
+      </defs>`;
+
+    // placa + reservas
+    s+=`<rect class="board" x="0" y="0" width="${r.W}" height="${r.H}"/>`;
+    s+=`<line class="reserve" x1="${r.M}" y1="0" x2="${r.M}" y2="${r.H}"/><line class="reserve" x1="${r.W-r.M}" y1="0" x2="${r.W-r.M}" y2="${r.H}"/><line class="reserve" x1="0" y1="${r.M}" x2="${r.W}" y2="${r.M}"/>`;
+    s+=`<text class="txt back" x="${r.W/2}" y="${-f*1.5}" text-anchor="middle">FUNDO</text>`;
+    s+=`<text class="txt front" x="${r.W/2}" y="${r.H+r.overhang+f*3.0}" text-anchor="middle">FRENTE</text>`;
+    s+=`<text class="small" x="4" y="${f+3}">Origem (0,0)</text>`;
+
+    // furos
+    const cross=Math.max(3.5,r.D*0.065);
+    r.holes.forEach(h=>{
+      if(h.front && r.overhang>0){s+=`<circle class="holeFull" cx="${h.x}" cy="${h.y}" r="${r.r}"/>`;}
+      s+=`<circle class="holeIn" clip-path="url(#boardClip)" cx="${h.x}" cy="${h.y}" r="${r.r}"/>`;
+      s+=`<line class="center" x1="${h.x-cross}" y1="${h.y}" x2="${h.x+cross}" y2="${h.y}"/><line class="center" x1="${h.x}" y1="${h.y-cross}" x2="${h.x}" y2="${h.y+cross}"/>`;
+      s+=`<text class="small accent" x="${h.x}" y="${h.y-r.r*0.12}" text-anchor="middle">F${h.id}</text>`;
+    });
+
+    // dimensão geral largura
+    const yDim=-(f*4.4 + r.nCols*f*1.35);
+    s+=`<line class="ext" x1="0" y1="0" x2="0" y2="${yDim+f}"/><line class="ext" x1="${r.W}" y1="0" x2="${r.W}" y2="${yDim+f}"/>`;
+    s+=`<line class="dim" x1="0" y1="${yDim}" x2="${r.W}" y2="${yDim}"/><text class="txt" x="${r.W/2}" y="${yDim-f*.55}" text-anchor="middle">L = ${fmt(r.W,2)} mm</text>`;
+    // dimensão geral profundidade — posicionada à esquerda das cotas acumuladas vindas da frente
+    const xDim=-(f*(8.2+r.nRows*1.85));
+    s+=`<line class="ext" x1="0" y1="0" x2="${xDim+f}" y2="0"/><line class="ext" x1="0" y1="${r.H}" x2="${xDim+f}" y2="${r.H}"/>`;
+    s+=`<line class="dim" x1="${xDim}" y1="0" x2="${xDim}" y2="${r.H}"/><text class="txt" x="${xDim-f*.7}" y="${r.H/2}" text-anchor="middle" transform="rotate(-90 ${xDim-f*.7} ${r.H/2})">P = ${fmt(r.H,2)} mm</text>`;
+
+    // COTAS ACUMULADAS X: borda esquerda -> centro de cada coluna.
+    // Cada cota tem sua própria linha-base para ficar inequívoco que é acumulada, não incremental.
+    const xCumBase=-f*2.0;
+    r.xs.forEach((x,i)=>{
+      const yy=xCumBase-i*f*1.35;
+      s+=`<line class="ext" x1="0" y1="0" x2="0" y2="${yy+f*.5}"/><line class="ext" x1="${x}" y1="0" x2="${x}" y2="${yy+f*.5}"/>`;
+      s+=`<line class="dim" x1="0" y1="${yy}" x2="${x}" y2="${yy}"/>`;
+      s+=`<text class="small" x="${x/2}" y="${yy-small*.55}" text-anchor="middle">X${i+1} E→C = ${fmt(x,2)} mm</text>`;
+    });
+
+    // COTAS ACUMULADAS X NO SENTIDO OPOSTO: borda direita -> centro de cada coluna.
+    // São mostradas abaixo da chapa para não confundir com as cotas vindas da esquerda.
+    const xRightBase=r.H+Math.max(r.overhang,0)+f*8.2;
+    r.xs.slice().reverse().forEach((x,j)=>{
+      const col=r.nCols-j;
+      const yy=xRightBase+j*f*1.35;
+      const val=r.W-x;
+      s+=`<line class="ext" x1="${r.W}" y1="${r.H}" x2="${r.W}" y2="${yy-f*.5}"/><line class="ext" x1="${x}" y1="${Math.min(r.H,r.yFront+r.r)}" x2="${x}" y2="${yy-f*.5}"/>`;
+      s+=`<line class="dim" x1="${x}" y1="${yy}" x2="${r.W}" y2="${yy}"/>`;
+      s+=`<text class="small" x="${(x+r.W)/2}" y="${yy-small*.55}" text-anchor="middle">X${col} D→C = ${fmt(val,2)} mm</text>`;
+    });
+
+    // COTAS ACUMULADAS Y: borda do fundo -> centro de cada fileira.
+    const yCumBase=r.W+f*3.0;
+    r.ysBackToFront.forEach((y,i)=>{
+      const xx=yCumBase+i*f*1.75;
+      s+=`<line class="ext" x1="0" y1="0" x2="${xx-f*.5}" y2="0"/><line class="ext" x1="${r.W}" y1="${y}" x2="${xx-f*.5}" y2="${y}"/>`;
+      s+=`<line class="dim" x1="${xx}" y1="0" x2="${xx}" y2="${y}"/>`;
+      s+=`<text class="small" x="${xx+small*.8}" y="${y/2}" transform="rotate(-90 ${xx+small*.8} ${y/2})" text-anchor="middle">Y${i+1} fundo→C = ${fmt(y,2)} mm</text>`;
+    });
+
+    // COTAS ACUMULADAS Y NO SENTIDO OPOSTO: borda frontal -> centro de cada fileira.
+    // Quando o centro da primeira fileira estiver fora da chapa, a cota é negativa e recebe a indicação "fora".
+    const yFrontBase=-(f*7.0);
+    r.ysFrontToBack.forEach((y,j)=>{
+      const rowFront=j+1;
+      const xx=yFrontBase-j*f*1.75;
+      const val=r.H-y;
+      const yMin=Math.min(r.H,y), yMax=Math.max(r.H,y);
+      s+=`<line class="ext" x1="0" y1="${r.H}" x2="${xx+f*.5}" y2="${r.H}"/><line class="ext" x1="0" y1="${y}" x2="${xx+f*.5}" y2="${y}"/>`;
+      s+=`<line class="dim" x1="${xx}" y1="${yMin}" x2="${xx}" y2="${yMax}"/>`;
+      const label=`Y${rowFront} frente→C = ${fmt(val,2)} mm${val<0?' (fora)':''}`;
+      s+=`<text class="small" x="${xx-small*.8}" y="${(r.H+y)/2}" transform="rotate(-90 ${xx-small*.8} ${(r.H+y)/2})" text-anchor="middle">${label}</text>`;
+    });
+
+    // margens laterais reais
+    const ySide=r.H+Math.max(r.overhang,0)+f*5.3;
+    const leftEdge=r.xs[0]-r.r, rightEdge=r.xs[r.xs.length-1]+r.r;
+    s+=`<line class="ext" x1="0" y1="${r.H}" x2="0" y2="${ySide-f}"/><line class="ext" x1="${leftEdge}" y1="${r.H}" x2="${leftEdge}" y2="${ySide-f}"/>`;
+    s+=`<line class="dim" x1="0" y1="${ySide}" x2="${leftEdge}" y2="${ySide}"/><text class="small" x="${leftEdge/2}" y="${ySide-small*.55}" text-anchor="middle">margem ${fmt(r.marginL,2)}</text>`;
+    s+=`<line class="ext" x1="${rightEdge}" y1="${r.H}" x2="${rightEdge}" y2="${ySide-f}"/><line class="ext" x1="${r.W}" y1="${r.H}" x2="${r.W}" y2="${ySide-f}"/>`;
+    s+=`<line class="dim" x1="${rightEdge}" y1="${ySide}" x2="${r.W}" y2="${ySide}"/><text class="small" x="${(rightEdge+r.W)/2}" y="${ySide-small*.55}" text-anchor="middle">margem ${fmt(r.marginR,2)}</text>`;
+
+    // diâmetro no furo traseiro esquerdo
+    const x0=r.xs[0], y0=r.ysBackToFront[0];
+    s+=`<line class="dim" x1="${x0-r.r}" y1="${y0}" x2="${x0+r.r}" y2="${y0}"/><text class="small" x="${x0}" y="${y0-small*.7}" text-anchor="middle">Ø ${fmt(r.D,2)}</text>`;
+
+    // gap horizontal (se houver)
+    if(r.nCols>1){
+      const edge1=r.xs[0]+r.r, edge2=r.xs[1]-r.r, yg=y0+r.r+f*2.1;
+      s+=`<line class="dim" x1="${edge1}" y1="${yg}" x2="${edge2}" y2="${yg}"/><text class="small" x="${(edge1+edge2)/2}" y="${yg-small*.65}" text-anchor="middle">${fmt(r.G,2)}</text>`;
+    }
+    // gap vertical (se houver)
+    if(r.nRows>1){
+      const yA=r.ysBackToFront[0]+r.r, yB=r.ysBackToFront[1]-r.r, xg=r.W+f*1.4;
+      s+=`<line class="dim" x1="${xg}" y1="${yA}" x2="${xg}" y2="${yB}"/><text class="small" x="${xg+small*.8}" y="${(yA+yB)/2+small*.35}">${fmt(r.G,2)}</text>`;
+    }
+
+    // reserva do fundo
+    const xBack=Math.max(f*2.0, r.xs[0]-r.r-f*2.5);
+    s+=`<line class="dim" x1="${xBack}" y1="0" x2="${xBack}" y2="${r.backMargin}"/><text class="small" x="${xBack+small*.8}" y="${r.backMargin/2+small*.35}">reserva ${fmt(r.backMargin,2)}</text>`;
+
+    // cota do centro frontal e avanço fora
+    const xf=r.W+f*(5.0+r.nRows*1.75);
+    s+=`<line class="ext" x1="${r.W}" y1="${r.H}" x2="${xf-f}" y2="${r.H}"/><line class="ext" x1="${r.W}" y1="${r.yFront}" x2="${xf-f}" y2="${r.yFront}"/>`;
+    s+=`<line class="dim" x1="${xf}" y1="${Math.min(r.yFront,r.H)}" x2="${xf}" y2="${Math.max(r.yFront,r.H)}"/>`;
+    s+=`<text class="small" x="${xf+small*.8}" y="${(r.yFront+r.H)/2+small*.35}">centro ↔ frente = ${fmt(Math.abs(r.frontCenterInside),2)}${r.frontCenterInside<0?' (centro fora)':''}</text>`;
+    if(r.overhang>0.0001){
+      const yOut=r.yFront+r.r, xfo=xf+f*3.7;
+      s+=`<line class="ext" x1="${r.W}" y1="${yOut}" x2="${xfo-f}" y2="${yOut}"/><line class="dim" x1="${xfo}" y1="${r.H}" x2="${xfo}" y2="${yOut}"/>`;
+      s+=`<text class="small front" x="${xfo+small*.8}" y="${(r.H+yOut)/2+small*.35}">fora = ${fmt(r.overhang,2)}</text>`;
+    }
+    s+=`<text class="small front" x="${r.W}" y="${r.H+Math.max(r.overhang,0)+f*1.8}" text-anchor="end">1ª fileira: ${fmt(r.pct,2)}%</text>`;
+
+    s+='</svg>';
+    $('svgHost').innerHTML=s;
+  }
+
+  function downloadBlob(blob,name){
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
+    setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},500);
+  }
+  function exportSvg(){
+    if(!current) return;
+    const svg=$('croquiSvg');
+    const clone=svg.cloneNode(true);
+    clone.setAttribute('xmlns','http://www.w3.org/2000/svg');
+    const xml='<?xml version="1.0" encoding="UTF-8"?>\n'+new XMLSerializer().serializeToString(clone);
+    downloadBlob(new Blob([xml],{type:'image/svg+xml;charset=utf-8'}),'croqui_serra_copo.svg');
+  }
+  function exportCsv(){
+    if(!current) return;
+    const lines=['Furo;Fileira;Coluna;Esquerda_ate_centro_X_mm;Direita_ate_centro_X_mm;Fundo_ate_centro_Y_mm;Frente_ate_centro_Y_mm;Frontal'];
+    current.holes.forEach(h=>{
+      const xr=current.W-h.x, yf=current.H-h.y;
+      lines.push(`F${h.id};${h.row};${h.col};${h.x.toFixed(3).replace('.',',')};${xr.toFixed(3).replace('.',',')};${h.y.toFixed(3).replace('.',',')};${yf.toFixed(3).replace('.',',')};${h.front?'SIM':'NAO'}`);
+    });
+    downloadBlob(new Blob(['\ufeff'+lines.join('\n')],{type:'text/csv;charset=utf-8'}),'centros_serra_copo.csv');
+  }
+
+  function safeCalc(){try{calculate();}catch(e){setStatus(e.message,'err');$('svgHost').innerHTML='';$('tbody').innerHTML='';['cCols','cRows','cTotal','cPct','cOver','cSide'].forEach(id=>$(id).textContent='—');$('summaryLine').textContent='Parâmetros incompatíveis.';current=null;}}
+  let t; Object.values(els).forEach(el=>el.addEventListener('input',()=>{clearTimeout(t);t=setTimeout(safeCalc,80);}));
+  Object.values(els).forEach(el=>el.addEventListener('change',safeCalc));
+  $('recalc').addEventListener('click',safeCalc);
+  $('autoPct').addEventListener('click',()=>{els.PCT.value='';safeCalc();});
+  $('saveSvg').addEventListener('click',exportSvg);
+  $('saveCsv').addEventListener('click',exportCsv);
+  $('printBtn').addEventListener('click',()=>window.print());
+  $('resetBtn').addEventListener('click',()=>{els.W.value='600';els.H.value='250';els.M.value='15';els.G.value='15';els.D.value='75';els.PCT.value='';els.PMODE.value='circ';els.ALIGN.value='center';els.INTDIMS.checked=false;safeCalc();});
+  safeCalc();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,395 @@
+<!doctype html>
+<!-- V3: revisão das cotas acumuladas, precisão de exibição e bloqueio de fabricação quando não cabe -->
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>Croqui Interativo Mobile V3 — Serra-copo</title>
+<style>
+:root{
+  --bg:#0b1118; --panel:#111a24; --panel2:#182431; --line:#2b3b4b; --text:#eef5fb; --muted:#9eb0c1;
+  --accent:#35bde7; --accent2:#7fe0ff; --wood:#22303d; --ok:#55d187; --warn:#ffb454; --bad:#ff6b6b;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font:15px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+body{min-height:100vh;overflow-x:hidden}
+button,input,select{font:inherit}
+button{cursor:pointer}
+.app{max-width:1500px;margin:auto;padding:14px}
+header{display:flex;gap:12px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;margin-bottom:12px}
+header h1{font-size:clamp(20px,3vw,32px);margin:0 0 4px}
+header p{margin:0;color:var(--muted)}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+.btn{border:1px solid var(--line);background:var(--panel2);color:var(--text);padding:10px 13px;border-radius:10px;min-height:42px}
+.btn.primary{background:var(--accent);color:#031019;border-color:transparent;font-weight:800}
+.btn.danger{color:#ffaaaa}
+.layout{display:grid;grid-template-columns:minmax(320px,430px) minmax(0,1fr);gap:14px;align-items:start}
+.mobile-tabs{display:none}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px}
+.panel h2{font-size:16px;margin:0 0 10px}
+.section{border-top:1px solid var(--line);padding-top:12px;margin-top:12px}
+.section:first-child{border-top:0;padding-top:0;margin-top:0}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.field{display:flex;flex-direction:column;gap:5px;min-width:0}
+.field label{font-size:12px;color:var(--muted)}
+input,select{width:100%;min-height:40px;border:1px solid var(--line);border-radius:9px;background:#0e1720;color:var(--text);padding:8px 10px;outline:none}
+input:focus,select:focus,button:focus-visible{border-color:var(--accent);box-shadow:0 0 0 3px rgba(53,189,231,.14);outline:none}
+small.hint{color:var(--muted);display:block;margin-top:6px}
+.diams{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+.diam-row{display:flex;gap:6px;align-items:center}
+.diam-row input{min-width:0}
+.icon-btn{width:40px;min-width:40px;height:40px;border-radius:9px;border:1px solid var(--line);background:var(--panel2);color:var(--text)}
+.tool-buttons{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.tool-chip{border:1px solid var(--line);background:#0f1b25;color:var(--text);border-radius:999px;padding:7px 11px}
+.tool-chip strong{color:var(--accent2)}
+.sequence{display:flex;gap:7px;flex-wrap:wrap;align-items:center;min-height:44px;padding:8px;border:1px dashed var(--line);border-radius:10px;background:#0d151e}
+.seq-item{display:inline-flex;align-items:center;gap:4px;border:1px solid #385267;background:#172633;border-radius:999px;padding:4px 6px 4px 10px;user-select:none}
+.seq-item .n{color:var(--muted);font-size:11px}
+.seq-item button{border:0;background:transparent;color:#d6e8f5;padding:4px;border-radius:6px}
+.seq-item button:hover{background:#263a49}
+.row-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:8px}
+.modebox{padding:9px;border:1px solid var(--line);border-radius:10px;background:#0e1720}
+.radio-line{display:flex;gap:12px;flex-wrap:wrap}
+.radio-line label{display:flex;align-items:center;gap:6px;color:var(--text)}
+.radio-line input{width:auto;min-height:auto}
+.status{margin-top:10px;padding:9px 10px;border-radius:10px;background:#0f1b25;border:1px solid var(--line);color:var(--muted)}
+.status.ok{border-color:rgba(85,209,135,.5);color:#a9efc5}.status.warn{border-color:rgba(255,180,84,.6);color:#ffd49f}.status.bad{border-color:rgba(255,107,107,.6);color:#ffb5b5}
+.viewer{min-width:0}
+.svg-wrap{background:#f6f8fa;border-radius:12px;border:1px solid #d7dee5;overflow:auto;max-width:100%}
+svg{display:block;width:100%;height:auto;min-width:720px;background:#fff}
+.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:10px}
+.metric{background:#0e1720;border:1px solid var(--line);border-radius:10px;padding:9px}
+.metric span{display:block;color:var(--muted);font-size:11px}.metric strong{display:block;font-size:16px;margin-top:2px;overflow-wrap:anywhere}
+.table-wrap{overflow:auto;margin-top:10px;border:1px solid var(--line);border-radius:10px}
+table{width:100%;border-collapse:collapse;min-width:760px;background:#0e1720}
+th,td{padding:8px 9px;border-bottom:1px solid #243341;text-align:right;white-space:nowrap}
+th:first-child,td:first-child{text-align:center} th{position:sticky;top:0;background:#16222d;color:#cde0ee;font-size:12px}td{font-variant-numeric:tabular-nums}.invalid-cell{color:#ff8f8f;font-weight:800}.invalid-row{background:rgba(255,107,107,.06)}
+.legend{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0 0;color:var(--muted);font-size:12px}
+.sw{width:12px;height:12px;border-radius:3px;display:inline-block;vertical-align:-2px;margin-right:4px}
+@media(max-width:950px){.layout{grid-template-columns:1fr}.metrics{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:700px){
+  .app{padding:8px}
+  header{margin-bottom:8px;gap:7px;align-items:center}
+  header h1{font-size:18px;margin:0}
+  header p{display:none}
+  .actions{width:100%;display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
+  .btn{min-height:40px;padding:8px 9px;font-size:13px}
+  .mobile-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;position:sticky;top:0;z-index:20;background:var(--bg);padding:5px 0 8px;margin-bottom:2px}
+  .mobile-tab{min-height:44px;border:1px solid var(--line);background:var(--panel2);color:var(--text);border-radius:10px;font-weight:700}
+  .mobile-tab.active{background:var(--accent);color:#031019;border-color:transparent}
+  .panel{padding:10px;border-radius:12px}
+  .controls .section{margin-top:8px;padding-top:8px}
+  .controls .section h2{margin-bottom:7px}
+  .app[data-mobile-tab="config"] .sequence-section{display:none}
+  .app[data-mobile-tab="ordem"] .controls .section:not(.sequence-section){display:none}
+  .app[data-mobile-tab="ordem"] .controls .status{display:none}
+  .app[data-mobile-tab="croqui"] .controls{display:none}
+  .app[data-mobile-tab="config"] .viewer,.app[data-mobile-tab="ordem"] .viewer{display:none}
+  .diams{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+  .diam-row{gap:4px}.diam-row input{min-height:38px;padding:6px 7px}.icon-btn{width:36px;min-width:36px;height:38px}
+  .tool-buttons,.sequence{flex-wrap:nowrap;overflow-x:auto;overscroll-behavior-x:contain;padding-bottom:8px;scrollbar-width:thin}
+  .tool-chip,.seq-item{flex:0 0 auto}
+  .sequence{min-height:54px}
+  .grid2{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+  .field label{font-size:11px}
+  input,select{min-height:42px;padding:7px 8px}
+  .viewer h2{margin-bottom:7px}
+  .svg-wrap{overflow:hidden}
+  svg{min-width:0;width:100%;height:auto}
+  .metrics{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+  .metric{padding:7px}.metric strong{font-size:14px}
+  .table-wrap{max-height:320px;overflow:auto}
+  table{min-width:680px}
+}
+@media(max-width:370px){.grid2{grid-template-columns:1fr}.actions{grid-template-columns:1fr 1fr}.actions .primary{grid-column:1/-1}}
+
+@media print{
+  body{background:#fff}.app{max-width:none;padding:0}.layout{display:block}.controls,header,.metrics,.table-wrap,.legend{display:none!important}.panel.viewer{border:0;padding:0;background:#fff}.svg-wrap{border:0;overflow:visible}svg{min-width:0;width:100%}
+}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+<header>
+  <div><h1>Croqui interativo — Serra-copo</h1><p>V3: cotas acumuladas revisadas, precisão consistente e bloqueio de cotas quando o projeto não cabe.</p></div>
+  <div class="actions"><button class="btn" id="printBtn">Imprimir / PDF</button><button class="btn" id="csvBtn">Exportar CSV</button><button class="btn primary" id="resetBtn">Restaurar exemplo</button></div>
+</header>
+<nav class="mobile-tabs" aria-label="Navegação mobile">
+  <button class="mobile-tab active" type="button" data-tab="config">Configurar</button>
+  <button class="mobile-tab" type="button" data-tab="ordem">Ordem</button>
+  <button class="mobile-tab" type="button" data-tab="croqui">Croqui</button>
+</nav>
+<div class="layout">
+  <aside class="panel controls">
+    <div class="section config-section">
+      <h2>1. Chapa</h2>
+      <div class="grid2">
+        <div class="field"><label for="boardW">Comprimento (mm)</label><input id="boardW" type="number" min="1" step="1" value="1900"></div>
+        <div class="field"><label for="boardH">Altura final (mm)</label><input id="boardH" type="number" min="1" step="1" value="130"></div>
+        <div class="field"><label for="edgeReserve">Reserva em cada extremidade (mm)</label><input id="edgeReserve" type="number" min="0" step="0.1" value="50"></div>
+      </div>
+      <small class="hint">A reserva é aplicada igualmente à esquerda e à direita. Todos os vãos entre as circunferências são recalculados automaticamente dentro do comprimento útil restante.</small>
+    </div>
+
+    <div class="section config-section">
+      <h2>2. Serras-copo — até 10 tamanhos</h2>
+      <div id="diameters" class="diams"></div>
+      <div class="row-actions"><button class="btn" id="addDiameter">+ Adicionar diâmetro</button></div>
+      <small class="hint">Os botões abaixo inserem o diâmetro correspondente no fim da sequência.</small>
+      <div id="toolButtons" class="tool-buttons"></div>
+    </div>
+
+    <div class="section sequence-section">
+      <h2>3. Ordem dos diâmetros</h2>
+      <div id="sequence" class="sequence" aria-live="polite"></div>
+      <div class="row-actions"><button class="btn" id="clearSeq">Limpar sequência</button><button class="btn" id="exampleSeq">Exemplo 5×100 + 10×60</button></div>
+      <small class="hint">Use ◀ ▶ para mover cada furo e × para remover. Também é possível inserir quantos furos couberem no projeto.</small>
+    </div>
+
+    <div class="section config-section">
+      <h2>4. Distribuição horizontal</h2>
+      <div class="field">
+        <label for="fitRule">Regra de distribuição dos vãos</label>
+        <select id="fitRule"><option value="equal">Vãos iguais entre todas as circunferências</option><option value="proportional">Vãos proporcionais ao diâmetro médio dos vizinhos</option></select>
+      </div>
+      <small class="hint">A aplicação sempre usa: comprimento da chapa − reservas das duas extremidades − soma dos diâmetros. O espaço restante é distribuído entre todos os vãos.</small>
+    </div>
+
+    <div class="section config-section">
+      <h2>5. Profundidade do recorte</h2>
+      <div class="field"><label for="percent">Circunferência dentro da chapa (%)</label><input id="percent" type="number" min="50" max="99.9" step="0.1" value="70"></div>
+      <small class="hint">50% = exatamente meia circunferência. Para 60%, 65% e 70%, o centro sobe progressivamente em relação à borda inferior.</small>
+    </div>
+
+    <div class="section config-section">
+      <h2>6. Exibição do croqui</h2>
+      <label class="radio-line" style="gap:8px"><input id="showAccum" type="checkbox" checked style="width:auto;min-height:auto"> Mostrar cotas acumuladas da borda esquerda até o centro de cada circunferência</label>
+      <small class="hint">As cotas X acumuladas são calculadas com precisão completa e exibidas com 2 casas decimais. Os vãos do croqui usam 3 casas para reduzir diferenças por arredondamento.</small>
+    </div>
+
+    <div id="status" class="status"></div>
+  </aside>
+
+  <main class="panel viewer">
+    <h2>Croqui cotado</h2>
+    <div class="svg-wrap"><svg id="drawing" viewBox="0 0 1400 760" role="img" aria-label="Croqui cotado da chapa com recortes de serra-copo"></svg></div>
+    <div class="legend"><span><i class="sw" style="background:#253746"></i>chapa</span><span><i class="sw" style="background:#21a9d6"></i>cotas e centros</span><span><i class="sw" style="background:#fff;border:1px solid #aaa"></i>material removido</span></div>
+    <div class="metrics">
+      <div class="metric"><span>Comprimento mínimo</span><strong id="mRequired">—</strong></div>
+      <div class="metric"><span>Vão calculado</span><strong id="mGap">—</strong></div>
+      <div class="metric"><span>Maior abertura na borda</span><strong id="mOpening">—</strong></div>
+      <div class="metric"><span>Maior Y do centro</span><strong id="mY">—</strong></div>
+    </div>
+    <div class="table-wrap"><table><thead><tr><th>Nº</th><th>Ø (mm)</th><th>X centro (mm)</th><th>Y centro (mm)</th><th>Abertura na borda (mm)</th><th>Arco interno</th><th>Vão anterior (mm)</th></tr></thead><tbody id="tbody"></tbody></table></div>
+  </main>
+</div>
+</div>
+<script>
+(() => {
+'use strict';
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const els = {
+  boardW:$('#boardW'), boardH:$('#boardH'), edgeReserve:$('#edgeReserve'), diameters:$('#diameters'), toolButtons:$('#toolButtons'), sequence:$('#sequence'),
+  fitRule:$('#fitRule'),
+  percent:$('#percent'), showAccum:$('#showAccum'), status:$('#status'), drawing:$('#drawing'), tbody:$('#tbody'), mRequired:$('#mRequired'), mGap:$('#mGap'), mOpening:$('#mOpening'), mY:$('#mY')
+};
+let tools = [60,100];
+let seq = [60,100,60,60,100,60,60,100,60,60,100,60,60,100,60];
+const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
+const num=(el,fallback=0)=>{const v=Number(el.value);return Number.isFinite(v)?v:fallback};
+const fmt=(v,d=2)=>Number(v).toLocaleString('pt-BR',{minimumFractionDigits:d,maximumFractionDigits:d});
+const esc=s=>String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+function toolColor(i){return ['#31566f','#476b5f','#6b5d3c','#6a4c63','#3e6468','#665348','#4e5c78','#5c6c42','#6b4f4f','#4d6170'][i%10]}
+function renderTools(){
+  els.diameters.innerHTML='';
+  tools.forEach((d,i)=>{
+    const row=document.createElement('div'); row.className='diam-row';
+    row.innerHTML=`<input aria-label="Diâmetro ${i+1}" type="number" min="1" max="1000" step="0.1" value="${d}"><button class="icon-btn" type="button" title="Remover diâmetro">×</button>`;
+    const inp=row.querySelector('input'); inp.addEventListener('change',()=>{const old=tools[i]; const nv=clamp(Number(inp.value)||old,1,1000); tools[i]=nv; seq=seq.map(x=>Math.abs(x-old)<1e-9?nv:x); renderTools(); renderSequence(); update();});
+    row.querySelector('button').addEventListener('click',()=>{if(tools.length<=1)return; const old=tools[i]; tools.splice(i,1); seq=seq.filter(x=>Math.abs(x-old)>1e-9); renderTools(); renderSequence(); update();});
+    els.diameters.appendChild(row);
+  });
+  els.toolButtons.innerHTML='';
+  tools.forEach((d,i)=>{const b=document.createElement('button');b.type='button';b.className='tool-chip';b.innerHTML=`+ Ø <strong>${fmt(d,1).replace(',0','')}</strong>`;b.style.borderColor=toolColor(i);b.addEventListener('click',()=>{if(seq.length<100){seq.push(d);renderSequence();update();}});els.toolButtons.appendChild(b)});
+  $('#addDiameter').disabled=tools.length>=10;
+}
+function renderSequence(){
+  els.sequence.innerHTML='';
+  if(!seq.length){els.sequence.innerHTML='<span style="color:var(--muted)">Nenhum furo. Adicione um diâmetro acima.</span>';return}
+  seq.forEach((d,i)=>{
+    const item=document.createElement('span'); item.className='seq-item';
+    const ti=Math.max(0,tools.findIndex(x=>Math.abs(x-d)<1e-9)); item.style.borderColor=toolColor(ti);
+    item.innerHTML=`<span class="n">${String(i+1).padStart(2,'0')}</span><strong>Ø${fmt(d,1).replace(',0','')}</strong><button type="button" aria-label="Mover para esquerda">◀</button><button type="button" aria-label="Mover para direita">▶</button><button type="button" aria-label="Remover">×</button>`;
+    const bs=item.querySelectorAll('button');
+    bs[0].addEventListener('click',()=>{if(i>0){[seq[i-1],seq[i]]=[seq[i],seq[i-1]];renderSequence();update();}});
+    bs[1].addEventListener('click',()=>{if(i<seq.length-1){[seq[i+1],seq[i]]=[seq[i],seq[i+1]];renderSequence();update();}});
+    bs[2].addEventListener('click',()=>{seq.splice(i,1);renderSequence();update();});
+    els.sequence.appendChild(item);
+  });
+}
+function calc(){
+  const W=Math.max(1,num(els.boardW,1900)), H=Math.max(1,num(els.boardH,130));
+  const reserve=Math.max(0,num(els.edgeReserve,50));
+  const p=clamp(num(els.percent,70),50,99.9)/100;
+  els.percent.value=(p*100).toFixed(1).replace('.0','');
+  const n=seq.length;
+  const radii=seq.map(d=>d/2);
+  let gaps=[], leftMargin=reserve, rightMargin=reserve, required=0, fit=true, message='';
+  if(!n) return {W,H,p,n,items:[],gaps:[],leftMargin,reserve,rightMargin,required:2*reserve,fit:true,message:'Adicione ao menos um furo.'};
+  const sumD=seq.reduce((a,b)=>a+b,0);
+  required=sumD+leftMargin+rightMargin;
+  const free=W-required;
+  if(free<0){
+    gaps=Array(Math.max(0,n-1)).fill(0);
+    fit=false;
+    message=`NÃO CABE: diâmetros + reservas excedem a chapa em ${fmt(-free)} mm. Comprimento mínimo: ${fmt(required)} mm. As cotas X são bloqueadas para fabricação até o projeto ficar válido.`;
+  }else if(n===1){
+    gaps=[];
+    message=`Furo único centralizado na área útil. Reserva de ${fmt(reserve)} mm em cada extremidade.`;
+  }else if(els.fitRule.value==='equal'){
+    const g=free/(n-1);
+    gaps=Array(n-1).fill(g);
+    message=`Vãos iguais calculados automaticamente: ${fmt(g)} mm. Reserva: ${fmt(reserve)} mm em cada extremidade.`;
+  }else{
+    const weights=[];
+    for(let i=0;i<n-1;i++) weights.push((seq[i]+seq[i+1])/2);
+    const sw=weights.reduce((a,b)=>a+b,0)||1;
+    gaps=weights.map(w=>free*w/sw);
+    message=`Vãos distribuídos proporcionalmente, respeitando ${fmt(reserve)} mm de reserva em cada extremidade.`;
+  }
+  let x;
+  if(n===1 && fit){
+    x=W/2;
+  }else{
+    x=leftMargin+radii[0];
+  }
+  const alpha=Math.PI*(p-.5);
+  const items=[];
+  for(let i=0;i<n;i++){
+    if(i>0)x += radii[i-1]+gaps[i-1]+radii[i];
+    const r=radii[i], y=r*Math.sin(alpha), opening=2*r*Math.cos(alpha);
+    items.push({i,d:seq[i],r,x,y,opening,arc:p*360,gapBefore:i?gaps[i-1]:null});
+  }
+  return {W,H,p,n,items,gaps,leftMargin,reserve,rightMargin,required,fit,message};
+}
+function svgEl(tag,attrs={},text=''){const e=document.createElementNS('http://www.w3.org/2000/svg',tag);for(const[k,v]of Object.entries(attrs))e.setAttribute(k,v);if(text)e.textContent=text;return e}
+function draw(c){
+  const s=els.drawing; s.replaceChildren();
+  const showAccum=!!els.showAccum.checked;
+  const VBW=1400, VBH=showAccum?900:760, padL=90,padR=50, boardTop=190, boardPixH=230, boardBottom=boardTop+boardPixH;
+  s.setAttribute('viewBox',`0 0 ${VBW} ${VBH}`);
+  const scale=(VBW-padL-padR)/Math.max(c.W,1);
+  const yScale=Math.min(scale, boardPixH/Math.max(c.H,1));
+  const bw=c.W*scale, bh=c.H*yScale;
+  const bx=padL, by=boardBottom-bh;
+  const defs=svgEl('defs');
+  const marker=svgEl('marker',{id:'arr',markerWidth:'8',markerHeight:'8',refX:'4',refY:'4',orient:'auto',markerUnits:'strokeWidth'}); marker.appendChild(svgEl('path',{d:'M8,4 L0,0 L0,8 Z',fill:'#21a9d6'})); defs.appendChild(marker);s.appendChild(defs);
+  s.appendChild(svgEl('text',{x:bx,y:45,fill:'#172737','font-size':'28','font-weight':'800'},'CROQUI DE MARCENARIA | RECORTES COM SERRA-COPO'));
+  s.appendChild(svgEl('text',{x:bx,y:76,fill:'#526575','font-size':'16'},`${c.n} furos • ${fmt(c.p*100,1)}% da circunferência dentro da chapa • distribuição automática • reserva ${fmt(c.reserve,1)} mm/lado`));
+  if(!c.fit){
+    s.appendChild(svgEl('rect',{x:bx,y:88,width:bw,height:28,rx:'5',fill:'#ffe3e3',stroke:'#c43f3f','stroke-width':'1.2'}));
+    s.appendChild(svgEl('text',{x:bx+bw/2,y:107,fill:'#9f2424','font-size':'13','font-weight':'800','text-anchor':'middle'},'PROJETO INVÁLIDO — NÃO CABE NA CHAPA. COTAS X BLOQUEADAS PARA FABRICAÇÃO.'));
+  }
+  // top dimension
+  const dimY=120; s.appendChild(svgEl('line',{x1:bx,y1:dimY,x2:bx+bw,y2:dimY,stroke:'#21a9d6','stroke-width':'2','marker-start':'url(#arr)','marker-end':'url(#arr)'}));
+  s.appendChild(svgEl('line',{x1:bx,y1:dimY-10,x2:bx,y2:by,stroke:'#21a9d6','stroke-width':'1'}));s.appendChild(svgEl('line',{x1:bx+bw,y1:dimY-10,x2:bx+bw,y2:by,stroke:'#21a9d6','stroke-width':'1'}));
+  s.appendChild(svgEl('text',{x:bx+bw/2,y:dimY-10,fill:'#1289b0','font-size':'17','font-weight':'800','text-anchor':'middle'},`${fmt(c.W,0)} mm`));
+  // board mask path using arcs; easiest: rectangle and white holes
+  s.appendChild(svgEl('rect',{x:bx,y:by,width:bw,height:bh,fill:'#253746'}));
+  c.items.forEach(it=>{
+    const cx=bx+it.x*scale, cy=boardBottom-it.y*yScale, r=it.r*scale;
+    // circle removal: white circle over board, clipped visually by board rectangle
+    const circ=svgEl('circle',{cx,cy,r,fill:'#fff'});s.appendChild(circ);
+    s.appendChild(svgEl('line',{x1:cx-8,y1:cy,x2:cx+8,y2:cy,stroke:'#21a9d6','stroke-width':'2'}));s.appendChild(svgEl('line',{x1:cx,y1:cy-8,x2:cx,y2:cy+8,stroke:'#21a9d6','stroke-width':'2'}));
+    s.appendChild(svgEl('line',{x1:cx,y1:cy-28,x2:cx,y2:cy+28,stroke:'#21a9d6','stroke-width':'1','stroke-dasharray':'4 4'}));
+    s.appendChild(svgEl('text',{x:cx,y:Math.max(by+18,cy-r-9),fill:'#19a7d1','font-size':'12','font-weight':'700','text-anchor':'middle'},String(it.i+1).padStart(2,'0')));
+    s.appendChild(svgEl('text',{x:cx,y:Math.min(boardBottom-8,cy+24),fill:'#617687','font-size':'12','text-anchor':'middle'},`Ø${fmt(it.d,1).replace(',0','')}`));
+  });
+  // left height dim
+  const hx=bx-40; s.appendChild(svgEl('line',{x1:hx,y1:by,x2:hx,y2:boardBottom,stroke:'#21a9d6','stroke-width':'2','marker-start':'url(#arr)','marker-end':'url(#arr)'}));s.appendChild(svgEl('line',{x1:hx,y1:by,x2:bx,y2:by,stroke:'#21a9d6'}));s.appendChild(svgEl('line',{x1:hx,y1:boardBottom,x2:bx,y2:boardBottom,stroke:'#21a9d6'}));s.appendChild(svgEl('text',{x:hx-8,y:(by+boardBottom)/2+5,fill:'#1289b0','font-size':'14','font-weight':'800','text-anchor':'end'},`${fmt(c.H,0)} mm`));
+  // reservas laterais
+  if(c.items.length){
+    const ry=boardBottom+18;
+    const firstLeft=bx+(c.items[0].x-c.items[0].r)*scale;
+    const lastRight=bx+(c.items[c.items.length-1].x+c.items[c.items.length-1].r)*scale;
+    if(firstLeft-bx>8){
+      s.appendChild(svgEl('line',{x1:bx,y1:ry,x2:firstLeft,y2:ry,stroke:'#6aaec5','stroke-width':'1.2','marker-start':'url(#arr)','marker-end':'url(#arr)'}));
+      s.appendChild(svgEl('text',{x:(bx+firstLeft)/2,y:ry-5,fill:'#557f8f','font-size':'10','text-anchor':'middle'},`R=${fmt(c.leftMargin,2)}`));
+    }
+    if(bx+bw-lastRight>8){
+      s.appendChild(svgEl('line',{x1:lastRight,y1:ry,x2:bx+bw,y2:ry,stroke:'#6aaec5','stroke-width':'1.2','marker-start':'url(#arr)','marker-end':'url(#arr)'}));
+      s.appendChild(svgEl('text',{x:(lastRight+bx+bw)/2,y:ry-5,fill:'#557f8f','font-size':'10','text-anchor':'middle'},`R=${fmt(c.rightMargin,2)}`));
+    }
+  }
+  // horizontal gaps dimension examples (all if enough room)
+  const gapY=boardBottom+42;
+  for(let i=1;i<c.items.length;i++){
+    const a=c.items[i-1],b=c.items[i]; const x1=bx+(a.x+a.r)*scale, x2=bx+(b.x-b.r)*scale;
+    if(x2-x1>18){s.appendChild(svgEl('line',{x1,y1:gapY,x2,y2:gapY,stroke:'#21a9d6','stroke-width':'1.5','marker-start':'url(#arr)','marker-end':'url(#arr)'})); if(i<8||c.items.length<=8)s.appendChild(svgEl('text',{x:(x1+x2)/2,y:gapY-7,fill:'#1289b0','font-size':'10','text-anchor':'middle'},fmt(c.gaps[i-1],3)))}
+  }
+  // accumulated X dimensions from left edge to each center
+  let accumExtra=0;
+  if(showAccum && c.items.length){
+    const levels=4, baseY=boardBottom+78, stepY=24;
+    c.items.forEach((it,i)=>{
+      const cx=bx+it.x*scale, ly=baseY+(i%levels)*stepY;
+      s.appendChild(svgEl('line',{x1:bx,y1:ly,x2:cx,y2:ly,stroke:'#21a9d6','stroke-width':'1','marker-start':'url(#arr)','marker-end':'url(#arr)'}));
+      s.appendChild(svgEl('line',{x1:cx,y1:boardBottom+3,x2:cx,y2:ly+5,stroke:'#8dcfe4','stroke-width':'.8','stroke-dasharray':'3 3'}));
+      s.appendChild(svgEl('text',{x:(bx+cx)/2,y:ly-5,fill:c.fit?'#1289b0':'#c43f3f','font-size':'10','font-weight':'700','text-anchor':'middle'},c.fit?`X${String(i+1).padStart(2,'0')}=${fmt(it.x,2)} mm`:`X${String(i+1).padStart(2,'0')}=INVÁLIDA`));
+    });
+    accumExtra=112;
+  }
+  // bottom info
+  const infoY=boardBottom+95+accumExtra;
+  s.appendChild(svgEl('text',{x:bx,y:infoY,fill:'#172737','font-size':'16','font-weight':'800'},'COORDENADAS DOS CENTROS'));
+  const lines=[
+    `Percentual interno: ${fmt(c.p*100,1)}%  |  Ângulo de arco interno: ${fmt(c.p*360,1)}°`,
+    `Fórmula de Y: (Ø/2) × sen[π × (${fmt(c.p,3)} − 0,5)]`,
+    `Abertura na borda: Ø × cos[π × (${fmt(c.p,3)} − 0,5)]`,
+    `Comprimento mínimo (diâmetros + reservas): ${fmt(c.required)} mm  |  Chapa configurada: ${fmt(c.W)} mm`
+  ];
+  lines.forEach((t,i)=>s.appendChild(svgEl('text',{x:bx,y:infoY+28+i*23,fill:i===3?(c.fit?'#238a53':'#cf4b4b'):'#526575','font-size':'14','font-weight':i===3?'700':'400'},t)));
+  // mini position labels for first 15 if possible
+  const startY=infoY+135; let col=0,row=0; const perCol=8, colW=400;
+  c.items.slice(0,24).forEach((it,i)=>{col=Math.floor(i/perCol);row=i%perCol;const txt=c.fit?`${String(i+1).padStart(2,'0')}  Ø${fmt(it.d,1).replace(',0','')}  X=${fmt(it.x,2)}  Y=${fmt(it.y,2)}`:`${String(i+1).padStart(2,'0')}  Ø${fmt(it.d,1).replace(',0','')}  X=INVÁLIDA  Y=${fmt(it.y,2)}`;s.appendChild(svgEl('text',{x:bx+col*colW,y:startY+row*21,fill:'#314759','font-size':'12'},txt))});
+}
+function renderTable(c){
+  els.tbody.innerHTML='';
+  c.items.forEach(it=>{
+    const tr=document.createElement('tr');
+    if(!c.fit) tr.classList.add('invalid-row');
+    const xCell=c.fit?fmt(it.x,2):'<span class="invalid-cell">INVÁLIDA</span>';
+    const gapCell=c.fit?(it.gapBefore==null?'—':fmt(it.gapBefore,3)):'<span class="invalid-cell">—</span>';
+    tr.innerHTML=`<td>${String(it.i+1).padStart(2,'0')}</td><td>${fmt(it.d,1)}</td><td>${xCell}</td><td>${fmt(it.y,2)}</td><td>${fmt(it.opening,2)}</td><td>${fmt(it.arc,1)}°</td><td>${gapCell}</td>`;
+    els.tbody.appendChild(tr);
+  });
+}
+function update(){
+  const c=calc(); draw(c); renderTable(c);
+  const avgGap=c.gaps.length?c.gaps.reduce((a,b)=>a+b,0)/c.gaps.length:0;
+  const maxOpen=c.items.length?Math.max(...c.items.map(x=>x.opening)):0; const maxY=c.items.length?Math.max(...c.items.map(x=>x.y)):0;
+  els.mRequired.textContent=fmt(c.required,2)+' mm'; els.mGap.textContent=(c.fit&&c.gaps.length?fmt(avgGap,3)+' mm':(c.fit?'—':'INVÁLIDO')); els.mOpening.textContent=(c.items.length?fmt(maxOpen,2)+' mm':'—'); els.mY.textContent=(c.items.length?fmt(maxY,2)+' mm':'—');
+  els.status.className='status '+(c.fit?'ok':'bad'); els.status.textContent=c.message;
+}
+function setExample(){tools=[60,100];seq=[60,100,60,60,100,60,60,100,60,60,100,60,60,100,60];els.boardW.value=1900;els.boardH.value=130;els.edgeReserve.value=50;els.fitRule.value='equal';els.percent.value=70;els.showAccum.checked=true;renderTools();renderSequence();update()}
+$('#addDiameter').addEventListener('click',()=>{if(tools.length<10){let v=tools[tools.length-1]||50;while(tools.some(x=>Math.abs(x-v)<1e-9))v+=10;tools.push(v);renderTools();update();}});
+$('#clearSeq').addEventListener('click',()=>{seq=[];renderSequence();update()});
+$('#exampleSeq').addEventListener('click',()=>{seq=[60,100,60,60,100,60,60,100,60,60,100,60,60,100,60]; if(!tools.some(x=>x===60))tools.push(60);if(!tools.some(x=>x===100)&&tools.length<10)tools.push(100);renderTools();renderSequence();update()});
+$('#resetBtn').addEventListener('click',setExample);
+[els.boardW,els.boardH,els.edgeReserve,els.percent,els.fitRule,els.showAccum].forEach(e=>e.addEventListener('input',update));
+$('#printBtn').addEventListener('click',()=>{const c=calc();if(!c.fit){alert('Projeto inválido: os furos e as reservas não cabem na chapa. Ajuste o comprimento, os diâmetros ou a reserva antes de imprimir para fabricação.');return;}window.print();});
+$('#csvBtn').addEventListener('click',()=>{const c=calc();if(!c.fit){alert('Exportação bloqueada: o projeto não cabe na chapa e as cotas X estão inválidas para fabricação.');return;}const rows=[['Nº','Diâmetro (mm)','X centro acumulado (mm)','Y centro (mm)','Abertura na borda (mm)','Arco interno (%)','Vão anterior (mm)']];c.items.forEach(it=>rows.push([it.i+1,it.d,it.x.toFixed(3),it.y.toFixed(3),it.opening.toFixed(3),(c.p*100).toFixed(2),it.gapBefore==null?'':it.gapBefore.toFixed(3)]));const csv=rows.map(r=>r.join(';')).join('\n');const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='marcacao_serra_copo_v3.csv';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)});
+const app=$('#app');
+function setMobileTab(tab){
+  app.dataset.mobileTab=tab;
+  $$('.mobile-tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
+  if(tab==='croqui') setTimeout(()=>els.drawing.scrollIntoView({block:'start',behavior:'smooth'}),20);
+}
+$$('.mobile-tab').forEach(b=>b.addEventListener('click',()=>setMobileTab(b.dataset.tab)));
+app.dataset.mobileTab='config';
+renderTools();renderSequence();update();
+})();
+</script>
+</body>
+</html>
